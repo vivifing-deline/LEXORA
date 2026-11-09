@@ -37,5 +37,5 @@ RUN mkdir -p /app/storage/uploads
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "npx prisma db push --schema=prisma/schema.prisma && node dist/app.js"]
+CMD ["sh", "-c", "export DATABASE_URL=\"${DATABASE_URL:-${MYSQL_URL:-${MYSQL_PRIVATE_URL}}}\" && npx prisma db push --schema=prisma/schema.prisma && node dist/app.js"]
 

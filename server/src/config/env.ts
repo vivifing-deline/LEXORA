@@ -41,43 +41,25 @@ if (isProd) {
   }
 }
 
-// Database URL handling with strict data isolation
-let rawDbUrl = process.env.DATABASE_URL;
-let dbFileName = appMode === 'demo' ? 'lexora-demo.db' : 'lexora.db';
+// Database URL handling with auto-detection for Railway and standard cloud MySQL
+let rawDbUrl = process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.MYSQL_PRIVATE_URL;
 
-let normalizedDatabaseUrl: string;
-let resolvedDbPath: string;
+// Support constituent Railway MySQL variables if full connection URL is not set
+if (!rawDbUrl && process.env.MYSQLHOST && process.env.MYSQLUSER) {
+  const host = process.env.MYSQLHOST;
+  const port = process.env.MYSQLPORT || '3306';
+  const user = process.env.MYSQLUSER;
+  const password = process.env.MYSQLPASSWORD || '';
+  const database = process.env.MYSQLDATABASE || 'railway';
+  rawDbUrl = `mysql://${user}:${password}@${host}:${port}/${database}`;
+}
 
-if (rawDbUrl && !rawDbUrl.startsWith('file:')) {
+let normalizedDatabaseUrl = '';
+let resolvedDbPath = '';
+
+if (rawDbUrl) {
   normalizedDatabaseUrl = rawDbUrl;
   resolvedDbPath = rawDbUrl;
-  process.env.DATABASE_URL = normalizedDatabaseUrl;
-} else {
-  if (!rawDbUrl) {
-    rawDbUrl = `file:../data/${dbFileName}`;
-  }
-
-  // Ensure data folder exists
-  const dataDir = path.resolve(serverRoot, 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  // Resolve SQLite path to absolute path to prevent ambiguity across working directories
-  resolvedDbPath = path.resolve(dataDir, dbFileName);
-  if (rawDbUrl.startsWith('file:')) {
-    const filePathPart = rawDbUrl.replace(/^file:/, '');
-    if (path.isAbsolute(filePathPart)) {
-      resolvedDbPath = filePathPart;
-    } else {
-      // Relative to server/prisma or server/
-      resolvedDbPath = path.resolve(serverRoot, 'prisma', filePathPart);
-      if (!fs.existsSync(path.dirname(resolvedDbPath))) {
-        resolvedDbPath = path.resolve(serverRoot, filePathPart);
-      }
-    }
-  }
-  normalizedDatabaseUrl = `file:${resolvedDbPath}`;
   process.env.DATABASE_URL = normalizedDatabaseUrl;
 }
 

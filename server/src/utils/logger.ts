@@ -8,7 +8,14 @@ export enum LogLevel {
 class Logger {
   private format(level: LogLevel, message: string, meta?: any): string {
     const timestamp = new Date().toISOString();
-    const metaString = meta ? ` ${JSON.stringify(meta)}` : '';
+    let metaString = '';
+    if (meta) {
+      if (meta instanceof Error) {
+        metaString = ` - ${meta.message} (code: ${(meta as any).errorCode || (meta as any).code || 'N/A'})`;
+      } else {
+        metaString = ` ${JSON.stringify(meta)}`;
+      }
+    }
     return `[${timestamp}] [${level}] ${message}${metaString}`;
   }
 
