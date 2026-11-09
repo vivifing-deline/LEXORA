@@ -35,27 +35,9 @@ export class LoginComponent {
   readonly resetEmail = signal<string>('');
 
   readonly loginForm = this.fb.group({
-    email: ['admin@lexora.demo', [Validators.required, Validators.email]],
-    password: ['Demo@123', [Validators.required]]
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', [Validators.required]]
   });
-
-  readonly demoAccounts = [
-    { role: 'Firm Admin', email: 'admin@lexora.demo', name: 'Barrister Zafar Iqbal', desc: 'Full workspace administration' },
-    { role: 'Senior Advocate', email: 'senior@lexora.demo', name: 'Aitzaz Hussain', desc: 'Supervision & Senior Litigation' },
-    { role: 'Associate', email: 'associate@lexora.demo', name: 'Mahnoor Rehman', desc: 'Case work & Commercial drafting' },
-    { role: 'Junior Advocate', email: 'junior@lexora.demo', name: 'Hamza Tariq', desc: 'Legal research & pleadings' },
-    { role: 'Clerk', email: 'clerk@lexora.demo', name: 'Muhammad Rashid', desc: 'Cause lists & registry filing' },
-    { role: 'Accountant', email: 'accountant@lexora.demo', name: 'Fatima Bilal', desc: 'Billing, Invoices & Payments' },
-    { role: 'Client', email: 'client@lexora.demo', name: 'Kamran Siddiqui', desc: 'Restricted personal client portal' }
-  ];
-
-  selectDemoAccount(email: string): void {
-    this.loginForm.patchValue({
-      email,
-      password: 'Demo@123'
-    });
-    this.onSubmit();
-  }
 
   togglePassword(): void {
     this.showPassword.update(v => !v);
@@ -76,7 +58,7 @@ export class LoginComponent {
       return;
     }
     this.toastService.success(
-      `Password reset instructions for ${this.resetEmail()} have been recorded. In demo mode, use Demo@123.`
+      `Password reset instructions have been dispatched to ${this.resetEmail()}.`
     );
     this.closeForgotPassword();
   }
