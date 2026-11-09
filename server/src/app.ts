@@ -60,9 +60,9 @@ app.use(errorHandler);
 const startServer = async () => {
   await connectDB();
   app.listen(config.port, () => {
-    logger.info(`🚀 LEXORA Backend running on http://localhost:${config.port}`);
-    logger.info(`📋 API available at http://localhost:${config.port}/api/v1`);
-    logger.info(`🏥 Health check at http://localhost:${config.port}/api/v1/health`);
+    logger.info(`🚀 LEXORA Backend running on port: ${config.port}`);
+    logger.info(`📋 API available at port: ${config.port}/api/v1`);
+    logger.info(`🏥 Health check at port: ${config.port}/api/v1/health`);
   });
 };
 
