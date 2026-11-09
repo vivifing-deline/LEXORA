@@ -44,18 +44,6 @@ export class SettingsComponent implements OnInit {
   readonly practiceAreas = signal<any[]>([]);
 
   readonly isBackingUp = signal<boolean>(false);
-  readonly isResetting = signal<boolean>(false);
-  readonly isResetModalOpen = signal<boolean>(false);
-
-  readonly demoAccounts = [
-    { role: 'Firm Admin', email: 'admin@lexora.demo', password: 'Demo@123' },
-    { role: 'Senior Advocate', email: 'senior@lexora.demo', password: 'Demo@123' },
-    { role: 'Associate', email: 'associate@lexora.demo', password: 'Demo@123' },
-    { role: 'Junior Advocate', email: 'junior@lexora.demo', password: 'Demo@123' },
-    { role: 'Clerk', email: 'clerk@lexora.demo', password: 'Demo@123' },
-    { role: 'Accountant', email: 'accountant@lexora.demo', password: 'Demo@123' },
-    { role: 'Client', email: 'client@lexora.demo', password: 'Demo@123' }
-  ];
 
   // Profile Form
   readonly profileForm = this.fb.group({
@@ -179,21 +167,6 @@ export class SettingsComponent implements OnInit {
       },
       error: () => {
         this.isBackingUp.set(false);
-      }
-    });
-  }
-
-  confirmResetDemo(): void {
-    this.isResetting.set(true);
-    this.configService.resetDemoData().subscribe({
-      next: () => {
-        this.isResetting.set(false);
-        this.isResetModalOpen.set(false);
-        this.toastService.success('Demo dataset successfully restored to original presentation state');
-        window.location.reload();
-      },
-      error: () => {
-        this.isResetting.set(false);
       }
     });
   }

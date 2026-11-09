@@ -240,7 +240,7 @@ export class TeamComponent implements OnInit {
       firstName: '',
       lastName: '',
       email: '',
-      password: 'Demo@123',
+      password: '',
       designation: 'Associate Advocate',
       phone: '',
       departmentId: this.departments()[0]?.id || '',

@@ -23,11 +23,11 @@ export class ConfigService {
   private readonly api = inject(ApiService);
 
   readonly config = signal<SafeConfig>({
-    appMode: 'demo',
-    demoMode: true,
-    demoResetEnabled: true,
+    appMode: 'normal',
+    demoMode: false,
+    demoResetEnabled: false,
     version: '1.0.0',
-    environment: 'development'
+    environment: 'production'
   });
 
   readonly isSetupRequired = signal<boolean>(false);

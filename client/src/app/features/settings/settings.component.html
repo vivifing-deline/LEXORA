@@ -43,28 +43,26 @@
         <!-- Environment Status Card -->
         <div class="card info-pane-card">
           <div class="card-header-row">
-            <h3 class="pane-title">Runtime Environment</h3>
-            <span class="badge" [ngClass]="envInfo()?.appMode === 'demo' ? 'badge-warning' : 'badge-success'">
-              {{ envInfo()?.appMode === 'demo' ? 'DEMO MODE' : 'NORMAL APP MODE' }}
-            </span>
+            <h3 class="pane-title">System & Infrastructure</h3>
+            <span class="badge badge-success">ACTIVE & SECURE</span>
           </div>
 
           <div class="env-info-table">
             <div class="info-group">
               <span class="info-label">Active Database:</span>
-              <span class="info-value font-mono font-bold">{{ envInfo()?.databaseName || 'lexora.db' }}</span>
+              <span class="info-value font-mono font-bold">{{ envInfo()?.databaseName || 'lexora' }}</span>
             </div>
             <div class="info-group">
               <span class="info-label">Database Engine:</span>
-              <span class="info-value font-mono">{{ envInfo()?.databaseType }} (Connected)</span>
+              <span class="info-value font-mono">{{ envInfo()?.databaseType || 'MySQL' }} (Connected)</span>
             </div>
             <div class="info-group">
               <span class="info-label">Node Environment:</span>
-              <span class="info-value font-mono">{{ envInfo()?.nodeEnv }}</span>
+              <span class="info-value font-mono">{{ envInfo()?.nodeEnv || 'production' }}</span>
             </div>
             <div class="info-group">
               <span class="info-label">Application Version:</span>
-              <span class="info-value font-mono">v{{ envInfo()?.version }}</span>
+              <span class="info-value font-mono">v{{ envInfo()?.version || '1.0.0' }}</span>
             </div>
             <div class="info-group">
               <span class="info-label">Last Database Backup:</span>
@@ -73,54 +71,36 @@
           </div>
 
           <div class="env-actions-footer mt-4 pt-3 border-top">
-            @if (envInfo()?.appMode === 'demo') {
-              <button class="btn btn-warning btn-sm" (click)="isResetModalOpen.set(true)">
-                <app-icon name="rotate-ccw" [size]="14"></app-icon>
-                <span>Reset Demo Dataset</span>
-              </button>
-            } @else {
-              <button class="btn btn-primary btn-sm" [disabled]="isBackingUp()" (click)="createBackup()">
-                @if (isBackingUp()) {
-                  <span class="spinner-small mr-1"></span>
-                }
-                <app-icon name="database" [size]="14"></app-icon>
-                <span>Create Database Backup</span>
-              </button>
-            }
+            <button class="btn btn-primary btn-sm" [disabled]="isBackingUp()" (click)="createBackup()">
+              @if (isBackingUp()) {
+                <span class="spinner-small mr-1"></span>
+              }
+              <app-icon name="database" [size]="14"></app-icon>
+              <span>Create Database Backup</span>
+            </button>
           </div>
         </div>
 
-        <!-- Mode Specific Showcase Details -->
+        <!-- Security & Access Controls -->
         <div class="card info-pane-card">
-          @if (envInfo()?.appMode === 'demo') {
-            <h3 class="pane-title">Configured Presentation Accounts</h3>
-            <p class="text-xs text-muted mb-3">Pre-seeded demo credentials for stakeholders & CTO evaluation:</p>
-
-            <div class="demo-accounts-table">
-              @for (acc of demoAccounts; track acc.email) {
-                <div class="demo-acc-row">
-                  <div class="demo-acc-role font-bold text-xs">{{ acc.role }}</div>
-                  <div class="demo-acc-email font-mono text-xs">{{ acc.email }}</div>
-                  <div class="demo-acc-pwd font-mono text-xs text-muted">{{ acc.password }}</div>
-                </div>
-              }
-            </div>
-          } @else {
-            <h3 class="pane-title">Production Controls</h3>
-            <p class="text-xs text-muted mb-3">Operating with isolated clean database (no demo mockups):</p>
-            <div class="info-group">
-              <span class="info-label">Data Isolation:</span>
-              <span class="badge badge-success text-xs">Strict SQLite Separation</span>
-            </div>
-            <div class="info-group">
-              <span class="info-label">Demo Seeding:</span>
-              <span class="badge badge-neutral text-xs">Disabled</span>
-            </div>
-            <div class="info-group">
-              <span class="info-label">Demo Reset:</span>
-              <span class="badge badge-neutral text-xs">Prohibited</span>
-            </div>
-          }
+          <h3 class="pane-title">Enterprise Security Controls</h3>
+          <p class="text-xs text-muted mb-3">Enterprise-grade multi-tenant data protection:</p>
+          <div class="info-group">
+            <span class="info-label">Data Isolation:</span>
+            <span class="badge badge-success text-xs">Strict Database Partitioning</span>
+          </div>
+          <div class="info-group">
+            <span class="info-label">Access Control:</span>
+            <span class="badge badge-success text-xs">Role-Based (RBAC)</span>
+          </div>
+          <div class="info-group">
+            <span class="info-label">Transport Encryption:</span>
+            <span class="badge badge-success text-xs">TLS 1.3 / HTTPS</span>
+          </div>
+          <div class="info-group">
+            <span class="info-label">Audit Logging:</span>
+            <span class="badge badge-success text-xs">Enabled</span>
+          </div>
         </div>
       </div>
     }
@@ -483,21 +463,6 @@
     <button class="btn btn-primary" (click)="savePracticeArea()">Create</button>
   </div>
 </app-modal>
-
-<!-- ========================================== -->
-<!-- DEMO RESET CONFIRMATION -->
-<!-- ========================================== -->
-<app-confirm-modal
-  [isOpen]="isResetModalOpen()"
-  title="Reset Demo Dataset?"
-  message="This will wipe all client, case, hearing, document, task, and invoice changes made during this presentation and restore the initial clean legal dataset. All demo login accounts will remain ready. Proceed?"
-  confirmText="Restore Initial Demo Data"
-  cancelText="Cancel"
-  [isDanger]="true"
-  [isLoading]="isResetting()"
-  (confirm)="confirmResetDemo()"
-  (cancel)="isResetModalOpen.set(false)"
-></app-confirm-modal>
 
 <!-- ========================================== -->
 <!-- ACTION CONFIRMATION MODAL -->

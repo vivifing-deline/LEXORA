@@ -8,7 +8,6 @@ import { ConfigService } from '../../core/services/config.service';
 import { ToastService } from '../../core/services/toast.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
-import { ConfirmModalComponent } from '../../shared/components/confirm-modal/confirm-modal.component';
 import { ToastContainerComponent } from '../../shared/components/toast/toast-container.component';
 import { FormsModule } from '@angular/forms';
 
@@ -29,7 +28,6 @@ interface NavItem {
     FormsModule,
     IconComponent,
     ModalComponent,
-    ConfirmModalComponent,
     ToastContainerComponent
   ],
   templateUrl: './main-layout.component.html',
@@ -47,8 +45,6 @@ export class MainLayoutComponent {
   readonly isUserMenuOpen = signal<boolean>(false);
   readonly isNotificationOpen = signal<boolean>(false);
   readonly isSearchModalOpen = signal<boolean>(false);
-  readonly isResetModalOpen = signal<boolean>(false);
-  readonly isResetting = signal<boolean>(false);
   readonly searchQuery = signal<string>('');
 
   currentUrl = signal<string>('/dashboard');
@@ -66,17 +62,6 @@ export class MainLayoutComponent {
     { label: 'Reports', route: '/reports', icon: 'bar-chart', permission: 'report.view' },
     { label: 'Team & Security', route: '/team', icon: 'shield', permission: 'user.manage' },
     { label: 'Settings', route: '/settings', icon: 'settings', permission: 'settings.manage' }
-  ];
-
-  // Demo accounts for quick demo switcher
-  readonly demoAccounts = [
-    { role: 'Firm Admin', email: 'admin@lexora.demo', name: 'Barrister Zafar Iqbal', icon: 'shield' },
-    { role: 'Senior Advocate', email: 'senior@lexora.demo', name: 'Aitzaz Hussain', icon: 'scale' },
-    { role: 'Associate Advocate', email: 'associate@lexora.demo', name: 'Mahnoor Rehman', icon: 'briefcase' },
-    { role: 'Junior Advocate', email: 'junior@lexora.demo', name: 'Hamza Tariq', icon: 'briefcase' },
-    { role: 'Legal Clerk', email: 'clerk@lexora.demo', name: 'Muhammad Rashid', icon: 'file-text' },
-    { role: 'Accountant', email: 'accountant@lexora.demo', name: 'Fatima Bilal', icon: 'credit-card' },
-    { role: 'Client Portal', email: 'client@lexora.demo', name: 'Kamran Siddiqui', icon: 'user' }
   ];
 
   readonly notifications = signal([
@@ -172,35 +157,6 @@ export class MainLayoutComponent {
   markAllNotificationsRead(): void {
     this.notifications.update(items => items.map(n => ({ ...n, unread: false })));
     this.toastService.info('All notifications marked as read');
-  }
-
-  switchDemoUser(email: string): void {
-    this.authService.login({ email, password: 'Demo@123' }).subscribe({
-      next: (res) => {
-        this.isUserMenuOpen.set(false);
-        this.toastService.success(`Switched role to: ${res.data.user.roles[0]}`);
-        this.router.navigate(['/dashboard']);
-      },
-      error: () => {
-        this.toastService.error('Failed to switch demo user');
-      }
-    });
-  }
-
-  confirmResetDemo(): void {
-    this.isResetting.set(true);
-    this.configService.resetDemoData().subscribe({
-      next: () => {
-        this.isResetting.set(false);
-        this.isResetModalOpen.set(false);
-        this.toastService.success('Demo dataset successfully restored to original presentation state');
-        window.location.reload();
-      },
-      error: (err) => {
-        this.isResetting.set(false);
-        this.toastService.error(err.error?.message || 'Failed to reset demo data');
-      }
-    });
   }
 
   executeGlobalSearch(): void {

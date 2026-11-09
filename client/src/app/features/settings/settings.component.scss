@@ -121,26 +121,7 @@
   text-align: right;
 }
 
-.demo-accounts-table {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-height: 240px;
-  overflow-y: auto;
-}
 
-.demo-acc-row {
-  display: grid;
-  grid-template-columns: 120px 1fr 90px;
-  padding: 0.4rem 0.6rem;
-  background: var(--bg-surface-secondary);
-  border-radius: var(--radius-sm);
-  align-items: center;
-}
-
-.demo-acc-role {
-  color: var(--primary);
-}
 
 .table-card {
   padding: 0;

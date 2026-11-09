@@ -57,10 +57,10 @@
     <!-- Sidebar Footer / Workspace Info -->
     <div class="sidebar-footer">
       <div class="workspace-pill" *ngIf="!isCollapsed()">
-        <div class="workspace-dot" [class.demo-dot]="configService.isDemoMode()"></div>
+        <div class="workspace-dot"></div>
         <div class="workspace-info">
           <span class="ws-name">LEXORA Chambers</span>
-          <span class="ws-status">{{ configService.isDemoMode() ? 'DEMO MODE' : 'NORMAL MODE' }} · SQLite</span>
+          <span class="ws-status">Enterprise Workspace · Active</span>
         </div>
       </div>
       <button class="collapse-toggle-btn" (click)="toggleSidebar()" [title]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
@@ -71,24 +71,6 @@
 
   <!-- Main Content Layout -->
   <div class="app-main-wrapper">
-    <!-- Demo Environment Banner (Only in Demo Mode) -->
-    @if (configService.isDemoMode()) {
-      <div class="demo-environment-banner">
-        <div class="demo-banner-left">
-          <span class="demo-badge-pill">DEMO ENVIRONMENT</span>
-          <span class="demo-banner-text">Realistic practice records active. Data persists locally until explicitly reset.</span>
-        </div>
-        <div class="demo-banner-right">
-          @if (authService.hasRole('Firm Admin') && configService.isDemoResetEnabled()) {
-            <button class="btn-demo-reset" (click)="isResetModalOpen.set(true)" title="Restore clean initial presentation data">
-              <app-icon name="rotate-ccw" [size]="13"></app-icon>
-              <span>Reset Demo Data</span>
-            </button>
-          }
-        </div>
-      </div>
-    }
-
     <!-- Top Header Navigation -->
     <header class="app-header">
       <div class="header-left">
@@ -200,9 +182,6 @@
                   <div class="user-menu-email">{{ authService.currentUser()?.email }}</div>
                   <div class="header-badges">
                     <span class="badge badge-primary text-xs">{{ authService.userRole() }}</span>
-                    @if (configService.isDemoMode()) {
-                      <span class="badge badge-warning text-xs">Demo Mode</span>
-                    }
                   </div>
                 </div>
               </div>
@@ -214,39 +193,6 @@
                   <span>Chambers Settings</span>
                 </a>
               </div>
-
-              <!-- CTO Demo Quick Switcher (Only active when in Demo Mode) -->
-              @if (configService.isDemoMode()) {
-                <div class="demo-role-section">
-                  <div class="demo-role-header">
-                    <span class="demo-role-title">SWITCH DEMO PERSONA</span>
-                    <span class="demo-role-subtitle">Simulate role-specific permissions</span>
-                  </div>
-                  <div class="demo-roles-list">
-                    @for (acc of demoAccounts; track acc.email) {
-                      <button
-                        type="button"
-                        class="demo-role-item"
-                        [class.active-role]="authService.currentUser()?.email === acc.email"
-                        (click)="switchDemoUser(acc.email)"
-                      >
-                        <div class="role-icon-box">
-                          <app-icon [name]="acc.icon || 'user'" [size]="14"></app-icon>
-                        </div>
-                        <div class="role-text-box">
-                          <span class="role-name">{{ acc.role }}</span>
-                          <span class="user-email-sub">{{ acc.name }}</span>
-                        </div>
-                        @if (authService.currentUser()?.email === acc.email) {
-                          <div class="active-check-icon">
-                            <app-icon name="check" [size]="14" color="var(--primary)"></app-icon>
-                          </div>
-                        }
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
 
               <div class="menu-divider"></div>
 
@@ -302,16 +248,3 @@
     </div>
   </div>
 </app-modal>
-
-<!-- Demo Reset Confirmation Modal -->
-<app-confirm-modal
-  [isOpen]="isResetModalOpen()"
-  title="Reset Demo Dataset?"
-  message="This will wipe all client, case, hearing, document, task, and invoice changes made during this presentation and restore the initial clean legal dataset. All demo login accounts will remain ready. Proceed?"
-  confirmText="Restore Initial Demo Data"
-  cancelText="Cancel"
-  [isDanger]="true"
-  [isLoading]="isResetting()"
-  (confirm)="confirmResetDemo()"
-  (cancel)="isResetModalOpen.set(false)"
-></app-confirm-modal>
