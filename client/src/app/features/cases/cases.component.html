@@ -1,0 +1,463 @@
+<div class="cases-page">
+  <!-- Header with Actions -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">LITIGATION & ADVISORY</div>
+      <h1 class="page-title">Case Registry & Portfolio</h1>
+      <p class="page-subtitle">Centralized tracking of civil, criminal, constitutional, and corporate matters.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" (click)="loadCases()">
+        <app-icon name="clock" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      @if (authService.hasPermission('case.create')) {
+        <button class="btn btn-primary btn-sm" (click)="openCreateModal()">
+          <app-icon name="plus" [size]="14"></app-icon>
+          <span>Register New Case</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar -->
+  <div class="card filter-toolbar">
+    <div class="search-field">
+      <app-icon name="search" [size]="16" color="var(--text-muted)"></app-icon>
+      <input
+        type="text"
+        placeholder="Search by case title, internal ref, court case number, parties..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+        (keydown.enter)="loadCases()"
+      />
+    </div>
+
+    <div class="filter-controls">
+      <!-- Modern Custom Status Filter Dropdown -->
+      <app-custom-select
+        [options]="statusOptions"
+        [ngModel]="statusFilter()"
+        (valueChange)="statusFilter.set($event); page.set(1); loadCases()"
+        placeholder="All Statuses"
+        variant="filter"
+        minWidth="145px"
+      ></app-custom-select>
+
+      <!-- Modern Custom Priority Filter Dropdown -->
+      <app-custom-select
+        [options]="priorityOptions"
+        [ngModel]="priorityFilter()"
+        (valueChange)="priorityFilter.set($event); page.set(1); loadCases()"
+        placeholder="All Priorities"
+        variant="filter"
+        minWidth="145px"
+      ></app-custom-select>
+
+      <!-- Modern Custom Stage Filter Dropdown -->
+      <app-custom-select
+        [options]="stageOptions"
+        [ngModel]="stageFilter()"
+        (valueChange)="stageFilter.set($event); page.set(1); loadCases()"
+        placeholder="All Stages"
+        variant="filter"
+        minWidth="145px"
+      ></app-custom-select>
+
+      <button class="btn btn-secondary btn-sm" (click)="resetFilters()">
+        Reset
+      </button>
+    </div>
+  </div>
+
+  <!-- Cases List / Table -->
+  @if (isLoading()) {
+    <app-loading-skeleton type="table" [rows]="8"></app-loading-skeleton>
+  } @else if (cases().length === 0) {
+    <app-empty-state
+      icon="briefcase"
+      title="No cases found"
+      description="No legal matters matched your search filters. Try adjusting your parameters or register a new case."
+      actionText="Register New Case"
+      (action)="openCreateModal()"
+    ></app-empty-state>
+  } @else {
+    <div class="card table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Case Reference</th>
+              <th>Case Title & Client</th>
+              <th>Practice Area</th>
+              <th>Forum / Court</th>
+              <th>Litigation Stage</th>
+              <th>Priority</th>
+              <th>Assigned Advocates</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of cases(); track c.id) {
+              <tr class="case-row" [routerLink]="['/cases', c.id]">
+                <td>
+                  <div class="ref-badge font-mono">{{ c.internalReference }}</div>
+                  @if (c.courtCaseNumber) {
+                    <div class="court-case-num">{{ c.courtCaseNumber }}</div>
+                  }
+                </td>
+                <td>
+                  <div class="case-main-title">{{ c.title }}</div>
+                  <div class="case-client-sub">
+                    <span class="client-dot"></span>
+                    <span>Client: {{ c.client?.name }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge badge-primary">{{ c.practiceArea?.name }}</span>
+                </td>
+                <td>
+                  <div class="court-name-cell">{{ c.court?.name || c.jurisdiction || 'High Court' }}</div>
+                  @if (c.judgeName) {
+                    <div class="judge-cell text-muted text-xs">{{ c.judgeName }}</div>
+                  }
+                </td>
+                <td>
+                  <span class="stage-tag">{{ c.currentStage }}</span>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="c.priority === 'urgent' ? 'badge-danger' : c.priority === 'high' ? 'badge-warning' : 'badge-neutral'">
+                    {{ c.priority }}
+                  </span>
+                </td>
+                <td>
+                  <div class="advocate-avatars-stack">
+                    @for (assign of c.assignments; track assign.id) {
+                      <div class="advocate-chip" [title]="assign.user.fullName + ' (' + assign.roleInCase + ')'">
+                        <span class="adv-init">{{ assign.user.firstName.charAt(0) }}</span>
+                        <span class="adv-name">{{ assign.user.lastName }}</span>
+                      </div>
+                    }
+                  </div>
+                </td>
+                <td class="text-right" (click)="$event.stopPropagation()">
+                  <div class="row-actions-group">
+                    <a [routerLink]="['/cases', c.id]" class="btn btn-secondary btn-sm" title="Open Case">
+                      <span>Open</span>
+                      <app-icon name="chevron-right" [size]="14"></app-icon>
+                    </a>
+                    @if (authService.hasPermission('case.edit')) {
+                      <button class="btn btn-secondary btn-sm" (click)="openEditModal(c, $event)" title="Edit Case">
+                        <app-icon name="edit" [size]="14"></app-icon>
+                      </button>
+                    }
+                    @if (authService.hasPermission('case.delete')) {
+                      <button class="btn btn-danger btn-sm" (click)="openDeleteModal(c, $event)" title="Delete Case">
+                        <app-icon name="trash" [size]="14"></app-icon>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-pagination
+        [page]="page()"
+        [limit]="limit()"
+        [total]="total()"
+        [totalPages]="totalPages()"
+        (pageChange)="onPageChange($event)"
+        (limitChange)="onLimitChange($event)"
+      ></app-pagination>
+    </div>
+  }
+</div>
+
+<!-- Case Registration Modal -->
+<app-modal
+  [isOpen]="isCreateModalOpen()"
+  title="Register New Legal Case"
+  subtitle="Complete the formal case docket details, court assignment, and legal team"
+  maxWidth="760px"
+  (close)="closeCreateModal()"
+>
+  <form [formGroup]="caseForm" (ngSubmit)="submitCase()" class="case-creation-form">
+    <div class="form-row">
+      <div class="form-group flex-2">
+        <label class="form-label">Case Title / Cause of Action *</label>
+        <input
+          type="text"
+          formControlName="title"
+          class="form-control"
+          placeholder="e.g. Indus Retailers vs. Atlas Logistics Ltd"
+        />
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Case Type *</label>
+        <input
+          type="text"
+          formControlName="caseType"
+          class="form-control"
+          placeholder="e.g. Commercial Suit / Writ Petition"
+        />
+      </div>
+    </div>
+
+    <!-- Client & Practice Area (using custom multi-select) -->
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Client *</label>
+        <app-multi-select
+          [options]="clientOptions()"
+          placeholder="Select onboarding client..."
+          [singleSelect]="true"
+          formControlName="clientId"
+          [showAvatars]="true"
+        ></app-multi-select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Practice Area *</label>
+        <app-multi-select
+          [options]="practiceAreaOptions()"
+          placeholder="Select legal domain..."
+          [singleSelect]="true"
+          formControlName="practiceAreaId"
+        ></app-multi-select>
+      </div>
+    </div>
+
+    <!-- Court and Judge -->
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Court / Adjudicating Forum</label>
+        <app-multi-select
+          [options]="courtOptions()"
+          placeholder="Select court..."
+          [singleSelect]="true"
+          formControlName="courtId"
+        ></app-multi-select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Court Case / Suit Number</label>
+        <input
+          type="text"
+          formControlName="courtCaseNumber"
+          class="form-control font-mono"
+          placeholder="e.g. Suit No. 412/2026 or W.P. 1290/2026"
+        />
+      </div>
+    </div>
+
+    <!-- Parties Involved -->
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Plaintiff / Petitioner *</label>
+        <input
+          type="text"
+          formControlName="plaintiffPetitioner"
+          class="form-control"
+          placeholder="Full name or company name"
+        />
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Defendant / Respondent *</label>
+        <input
+          type="text"
+          formControlName="defendantRespondent"
+          class="form-control"
+          placeholder="Adverse party name"
+        />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Opposing Counsel</label>
+        <input
+          type="text"
+          formControlName="opposingCounsel"
+          class="form-control"
+          placeholder="Name of opposing advocate"
+        />
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Judge / Presiding Officer</label>
+        <input
+          type="text"
+          formControlName="judgeName"
+          class="form-control"
+          placeholder="e.g. Justice Tariq Mehmood"
+        />
+      </div>
+    </div>
+
+    <!-- Stage, Priority, and Advocates -->
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Current Stage</label>
+        <select formControlName="currentStage" class="form-control">
+          @for (s of stagesList; track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Priority</label>
+        <select formControlName="priority" class="form-control">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Signature Multi-Select: Assigned Legal Team -->
+    <div class="form-group">
+      <label class="form-label">Assign Legal Advocates & Team Members</label>
+      <app-multi-select
+        [options]="advocateOptions()"
+        placeholder="Select senior advocates, associates, and clerks..."
+        formControlName="assignedUserIds"
+        [showAvatars]="true"
+      ></app-multi-select>
+    </div>
+
+    <!-- Description & Notes -->
+    <div class="form-group">
+      <label class="form-label">Case Description & Claims Summary</label>
+      <textarea
+        formControlName="description"
+        rows="3"
+        class="form-control"
+        placeholder="Brief summary of dispute facts, valuation, and remedies sought..."
+      ></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitCase()">Register Case Docket</button>
+  </div>
+</app-modal>
+
+<!-- Edit Case Modal -->
+<app-modal
+  [isOpen]="isEditModalOpen()"
+  [title]="'Edit Case: ' + (caseToEdit()?.internalReference || '')"
+  subtitle="Update case metadata, litigation status, and docket properties"
+  maxWidth="760px"
+  (close)="closeEditModal()"
+>
+  <form [formGroup]="editCaseForm" (ngSubmit)="submitEditCase()" class="case-creation-form">
+    <div class="form-row">
+      <div class="form-group flex-2">
+        <label class="form-label">Case Title / Cause of Action *</label>
+        <input type="text" formControlName="title" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Case Type *</label>
+        <input type="text" formControlName="caseType" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Court Case / Suit Number</label>
+        <input type="text" formControlName="courtCaseNumber" class="form-control font-mono" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Jurisdiction</label>
+        <input type="text" formControlName="jurisdiction" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Judge / Presiding Officer</label>
+        <input type="text" formControlName="judgeName" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Plaintiff / Petitioner *</label>
+        <input type="text" formControlName="plaintiffPetitioner" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Defendant / Respondent *</label>
+        <input type="text" formControlName="defendantRespondent" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Opposing Counsel</label>
+        <input type="text" formControlName="opposingCounsel" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Opposing Parties</label>
+        <input type="text" formControlName="opposingParties" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Current Stage</label>
+        <select formControlName="currentStage" class="form-control">
+          @for (s of stagesList; track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Priority</label>
+        <select formControlName="priority" class="form-control">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Agreed Fee (PKR)</label>
+        <input type="number" formControlName="agreedFee" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Important Notes</label>
+      <input type="text" formControlName="importantNotes" class="form-control" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Case Description & Claims Summary</label>
+      <textarea formControlName="description" rows="3" class="form-control"></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeEditModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitEditCase()">Save Changes</button>
+  </div>
+</app-modal>
+
+<!-- Confirm Delete Case Modal -->
+<app-confirm-modal
+  [isOpen]="isDeleteModalOpen()"
+  title="Archive / Delete Case"
+  [message]="'Are you sure you want to delete case ' + (caseToDelete()?.internalReference || '') + ' (' + (caseToDelete()?.title || '') + ')? This will archive the case and related records.'"
+  confirmText="Delete Case"
+  [isDanger]="true"
+  [isLoading]="isDeleting()"
+  (confirm)="confirmDeleteCase()"
+  (cancel)="closeDeleteModal()"
+></app-confirm-modal>
+
+

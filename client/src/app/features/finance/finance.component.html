@@ -1,0 +1,493 @@
+<div class="finance-page">
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">LEGAL ACCOUNTS & REVENUE</div>
+      <h1 class="page-title">Billing, Invoicing & Expenses</h1>
+      <p class="page-subtitle">Generate fee notes, track partial payments, reconcile client balances, and log court fees.</p>
+    </div>
+
+    <div class="header-actions">
+      <div class="view-toggle-box">
+        <button class="view-btn" [class.active]="activeTab() === 'invoices'" (click)="activeTab.set('invoices')">
+          <app-icon name="credit-card" [size]="15"></app-icon>
+          <span>Fee Invoices</span>
+        </button>
+        <button class="view-btn" [class.active]="activeTab() === 'payments'" (click)="activeTab.set('payments')">
+          <app-icon name="check-circle" [size]="15"></app-icon>
+          <span>Payment History</span>
+        </button>
+        <button class="view-btn" [class.active]="activeTab() === 'expenses'" (click)="activeTab.set('expenses')">
+          <app-icon name="tag" [size]="15"></app-icon>
+          <span>Litigation Expenses</span>
+        </button>
+      </div>
+
+      @if (activeTab() === 'invoices' && authService.hasPermission('billing.create')) {
+        <button class="btn btn-primary btn-sm" (click)="openInvoiceModal()">
+          <app-icon name="plus" [size]="14"></app-icon>
+          <span>Generate Invoice</span>
+        </button>
+      }
+
+      @if (activeTab() === 'expenses' && authService.hasPermission('billing.create')) {
+        <button class="btn btn-primary btn-sm" (click)="openExpenseModal()">
+          <app-icon name="plus" [size]="14"></app-icon>
+          <span>Record Expense</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="table" [rows]="6"></app-loading-skeleton>
+  } @else {
+    <!-- Invoices Tab -->
+    @if (activeTab() === 'invoices') {
+      <div class="card table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Client & Case</th>
+                <th>Fee Type</th>
+                <th>Issue Date</th>
+                <th>Total Billed</th>
+                <th>Amount Paid</th>
+                <th>Balance Due</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (inv of invoices(); track inv.id) {
+                <tr>
+                  <td>
+                    <span class="font-mono font-bold text-primary">{{ inv.invoiceNumber }}</span>
+                  </td>
+                  <td>
+                    <div class="font-bold">{{ inv.client?.name }}</div>
+                    @if (inv.case) {
+                      <div class="text-xs text-muted font-mono">{{ inv.case.internalReference }}</div>
+                    }
+                  </td>
+                  <td><span class="badge badge-neutral text-xs">{{ inv.feeType }}</span></td>
+                  <td><span class="text-xs">{{ inv.issueDate | date:'mediumDate' }}</span></td>
+                  <td><span class="font-bold">{{ formatCurrency(inv.totalAmount) }}</span></td>
+                  <td><span class="text-success font-medium">{{ formatCurrency(inv.amountPaid) }}</span></td>
+                  <td><span class="text-danger font-medium">{{ formatCurrency(inv.balanceDue) }}</span></td>
+                  <td>
+                    <span class="badge" [ngClass]="inv.status === 'paid' ? 'badge-success' : inv.status === 'partial' ? 'badge-warning' : inv.status === 'cancelled' ? 'badge-neutral' : 'badge-primary'">
+                      {{ inv.status }}
+                    </span>
+                  </td>
+                  <td class="text-right">
+                    <div class="row-actions-group">
+                      @if (inv.status !== 'paid' && inv.status !== 'cancelled' && authService.hasPermission('billing.manage_payments')) {
+                        <button class="btn btn-primary btn-xs" (click)="openPaymentModal(inv)">
+                          <span>Record Payment</span>
+                        </button>
+                      }
+                      @if (inv.status !== 'cancelled' && inv.status !== 'paid' && authService.hasPermission('billing.manage_payments')) {
+                        <button class="btn btn-secondary btn-xs text-danger" (click)="openCancelModal(inv)" title="Cancel Invoice">
+                          <app-icon name="trash" [size]="12"></app-icon>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pagination
+          [page]="page()"
+          [limit]="limit()"
+          [total]="total()"
+          [totalPages]="totalPages()"
+          (pageChange)="onPageChange($event)"
+          (limitChange)="onLimitChange($event)"
+        ></app-pagination>
+      </div>
+    }
+
+    <!-- Payment History Tab -->
+    @if (activeTab() === 'payments') {
+      <div class="card table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Receipt / Ref #</th>
+                <th>Related Invoice</th>
+                <th>Client</th>
+                <th>Amount Received</th>
+                <th>Method</th>
+                <th>Payment Date</th>
+                <th>Reversal Status</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (pmt of payments(); track pmt.id) {
+                <tr>
+                  <td>
+                    <span class="font-mono font-bold">{{ pmt.referenceNo || ('PAY-' + pmt.id.slice(0, 8)) }}</span>
+                  </td>
+                  <td>
+                    <span class="font-mono text-xs text-primary">{{ pmt.invoice?.invoiceNumber }}</span>
+                  </td>
+                  <td>
+                    <div class="font-bold text-xs">{{ pmt.invoice?.client?.name }}</div>
+                  </td>
+                  <td>
+                    <span class="font-bold text-success">{{ formatCurrency(pmt.amount) }}</span>
+                  </td>
+                  <td><span class="text-xs">{{ pmt.paymentMethod }}</span></td>
+                  <td><span class="text-xs">{{ pmt.paymentDate | date:'mediumDate' }}</span></td>
+                  <td>
+                    @if (pmt.isReversed) {
+                      <span class="badge badge-danger text-xs" [title]="pmt.reversalReason || 'Reversed'">Reversed</span>
+                    } @else {
+                      <span class="badge badge-success text-xs">Cleared</span>
+                    }
+                  </td>
+                  <td class="text-right">
+                    @if (!pmt.isReversed && authService.hasPermission('billing.manage_payments')) {
+                      <button class="btn btn-danger btn-xs" (click)="openReverseModal(pmt)" title="Authorized Reversal">
+                        <app-icon name="rotate-ccw" [size]="12"></app-icon>
+                        <span>Reverse</span>
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pagination
+          [page]="page()"
+          [limit]="limit()"
+          [total]="total()"
+          [totalPages]="totalPages()"
+          (pageChange)="onPageChange($event)"
+          (limitChange)="onLimitChange($event)"
+        ></app-pagination>
+      </div>
+    }
+
+    <!-- Expenses Tab -->
+    @if (activeTab() === 'expenses') {
+      <div class="card table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Expense Title</th>
+                <th>Category</th>
+                <th>Related Case</th>
+                <th>Amount</th>
+                <th>Payment Mode</th>
+                <th>Date</th>
+                <th>Receipt #</th>
+                <th>Recorded By</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (exp of expenses(); track exp.id) {
+                <tr>
+                  <td><span class="font-bold">{{ exp.title }}</span></td>
+                  <td><span class="badge badge-primary text-xs">{{ exp.category }}</span></td>
+                  <td><span class="font-mono text-xs">{{ exp.case?.internalReference || 'General Firm' }}</span></td>
+                  <td><span class="font-bold text-danger">{{ formatCurrency(exp.amount) }}</span></td>
+                  <td><span class="text-xs text-secondary">{{ exp.paymentMethod }}</span></td>
+                  <td><span class="text-xs">{{ exp.expenseDate | date:'mediumDate' }}</span></td>
+                  <td><span class="font-mono text-xs">{{ exp.receiptNumber || 'N/A' }}</span></td>
+                  <td><span class="text-xs">{{ exp.recordedBy?.firstName }} {{ exp.recordedBy?.lastName }}</span></td>
+                  <td class="text-right">
+                    @if (authService.hasPermission('billing.create')) {
+                      <button class="btn btn-danger btn-xs" (click)="openDeleteExpenseModal(exp)" title="Remove Expense">
+                        <app-icon name="trash" [size]="12"></app-icon>
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pagination
+          [page]="page()"
+          [limit]="limit()"
+          [total]="total()"
+          [totalPages]="totalPages()"
+          (pageChange)="onPageChange($event)"
+          (limitChange)="onLimitChange($event)"
+        ></app-pagination>
+      </div>
+    }
+  }
+</div>
+
+<!-- Generate Invoice Modal -->
+<app-modal
+  [isOpen]="isInvoiceModalOpen()"
+  title="Generate Client Fee Invoice"
+  subtitle="Create itemized billing statement with tax and payment terms"
+  maxWidth="720px"
+  (close)="closeInvoiceModal()"
+>
+  <form [formGroup]="invoiceForm" class="invoice-form">
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Client *</label>
+        <app-multi-select
+          [options]="clientOptions()"
+          placeholder="Select billed client..."
+          [singleSelect]="true"
+          formControlName="clientId"
+        ></app-multi-select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Associated Case</label>
+        <app-multi-select
+          [options]="caseOptions()"
+          placeholder="Link to case (optional)..."
+          [singleSelect]="true"
+          formControlName="caseId"
+        ></app-multi-select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Billing Type</label>
+        <select formControlName="feeType" class="form-control">
+          <option value="Fixed">Fixed Legal Fee</option>
+          <option value="Hourly">Hourly Professional Rate</option>
+          <option value="Retainer">Monthly Retainer</option>
+          <option value="Contingency">Contingency / Success Fee</option>
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Payment Due Date *</label>
+        <input type="date" formControlName="dueDate" class="form-control" />
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Sales Tax / SST (%)</label>
+        <input type="number" formControlName="taxRate" class="form-control" />
+      </div>
+    </div>
+
+    <!-- Items Array -->
+    <div class="items-section">
+      <div class="items-header">
+        <span class="items-title">Fee Breakdown Items</span>
+        <button type="button" class="btn btn-secondary btn-xs" (click)="addItem()">
+          <app-icon name="plus" [size]="12"></app-icon>
+          <span>Add Item</span>
+        </button>
+      </div>
+
+      <div formArrayName="items" class="items-stack">
+        @for (item of items.controls; track $index) {
+          <div [formGroupName]="$index" class="item-row">
+            <div class="item-desc flex-3">
+              <input type="text" formControlName="description" class="form-control" placeholder="Item description / legal service rendered..." />
+            </div>
+            <div class="item-qty flex-1">
+              <input type="number" formControlName="quantity" class="form-control" placeholder="Qty" />
+            </div>
+            <div class="item-rate flex-2">
+              <input type="number" formControlName="unitPrice" class="form-control" placeholder="Rate (PKR)" />
+            </div>
+            @if (items.length > 1) {
+              <button type="button" class="btn-remove-item" (click)="removeItem($index)">
+                <app-icon name="trash" [size]="14"></app-icon>
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Invoice Notes & Bank Account Information</label>
+      <textarea formControlName="notes" rows="2" class="form-control"></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeInvoiceModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitInvoice()">Issue Invoice</button>
+  </div>
+</app-modal>
+
+<!-- Record Payment Modal -->
+<app-modal
+  [isOpen]="isPaymentModalOpen()"
+  title="Record Client Payment"
+  [subtitle]="'Apply payment against Invoice #' + selectedInvoice()?.invoiceNumber"
+  maxWidth="520px"
+  (close)="closePaymentModal()"
+>
+  <div class="invoice-summary-banner" *ngIf="selectedInvoice()">
+    <div class="sum-row">
+      <span>Total Billed:</span>
+      <span class="font-bold">{{ formatCurrency(selectedInvoice().totalAmount) }}</span>
+    </div>
+    <div class="sum-row">
+      <span>Current Outstanding Balance:</span>
+      <span class="font-bold text-danger">{{ formatCurrency(selectedInvoice().balanceDue) }}</span>
+    </div>
+  </div>
+
+  <form [formGroup]="paymentForm" class="payment-form">
+    <div class="form-group">
+      <label class="form-label">Payment Amount (PKR) *</label>
+      <input type="number" formControlName="amount" class="form-control font-bold" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Payment Mode *</label>
+        <select formControlName="paymentMethod" class="form-control">
+          <option value="Bank Transfer">Bank Transfer / IBFT</option>
+          <option value="Cheque">Cheque / Pay Order</option>
+          <option value="Cash">Cash Receipt</option>
+          <option value="Online">Online Gateway</option>
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Bank Reference / Cheque #</label>
+        <input type="text" formControlName="referenceNo" class="form-control font-mono" placeholder="Ref or cheque number" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Accounting Notes</label>
+      <input type="text" formControlName="notes" class="form-control" placeholder="e.g. 50% advance retainer received" />
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closePaymentModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitPayment()">Confirm & Reconcile Payment</button>
+  </div>
+</app-modal>
+
+<!-- Reverse Payment Modal -->
+<app-modal
+  [isOpen]="isReverseModalOpen()"
+  title="Authorize Payment Reversal"
+  subtitle="Reverse cleared payment and adjust invoice outstanding balance"
+  maxWidth="500px"
+  (close)="closeReverseModal()"
+>
+  <div class="invoice-summary-banner" *ngIf="paymentToReverse()">
+    <div class="sum-row">
+      <span>Payment Amount to Reverse:</span>
+      <span class="font-bold text-danger">{{ formatCurrency(paymentToReverse().amount) }}</span>
+    </div>
+    <div class="sum-row">
+      <span>Invoice:</span>
+      <span class="font-mono font-bold">{{ paymentToReverse().invoice?.invoiceNumber }}</span>
+    </div>
+  </div>
+
+  <form [formGroup]="reverseForm" (ngSubmit)="submitReversePayment()">
+    <div class="form-group">
+      <label class="form-label">Reason for Reversal *</label>
+      <textarea formControlName="reason" rows="3" class="form-control" placeholder="e.g. Cheque dishonoured / transaction reversed by bank..."></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeReverseModal()">Cancel</button>
+    <button class="btn btn-danger" (click)="submitReversePayment()">Authorize Reversal</button>
+  </div>
+</app-modal>
+
+<!-- Record Expense Modal -->
+<app-modal
+  [isOpen]="isExpenseModalOpen()"
+  title="Record Litigation Expense"
+  subtitle="Log court fees, stamp papers, commissioner charges, or travel expenses"
+  maxWidth="560px"
+  (close)="closeExpenseModal()"
+>
+  <form [formGroup]="expenseForm" class="expense-form">
+    <div class="form-group">
+      <label class="form-label">Expense Description *</label>
+      <input type="text" formControlName="title" class="form-control" placeholder="e.g. Court fee stamps for writ petition" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Expense Category *</label>
+        <select formControlName="category" class="form-control">
+          <option value="Court Fee">Court Fee & Stamp Duty</option>
+          <option value="Process Server">Process Serving & Bailiff</option>
+          <option value="Documentation">Certified Copies & Printing</option>
+          <option value="Travel">Travel & Out-of-station</option>
+          <option value="Professional Fee">Expert Witness / Commissioner</option>
+          <option value="Other">Miscellaneous</option>
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Disbursed Amount (PKR) *</label>
+        <input type="number" formControlName="amount" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Payment Method</label>
+        <select formControlName="paymentMethod" class="form-control">
+          <option value="Cash">Cash</option>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Cheque">Cheque</option>
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Receipt #</label>
+        <input type="text" formControlName="receiptNumber" class="form-control" placeholder="Receipt or voucher number" />
+      </div>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeExpenseModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitExpense()">Save Expense</button>
+  </div>
+</app-modal>
+
+<!-- Confirm Cancel Invoice Modal -->
+<app-confirm-modal
+  [isOpen]="isCancelModalOpen()"
+  title="Cancel Invoice"
+  [message]="'Are you sure you want to cancel Invoice #' + (invoiceToCancel()?.invoiceNumber || '') + '?'"
+  confirmText="Cancel Invoice"
+  [isDanger]="true"
+  (confirm)="confirmCancelInvoice()"
+  (cancel)="closeCancelModal()"
+></app-confirm-modal>
+
+<!-- Confirm Delete Expense Modal -->
+<app-confirm-modal
+  [isOpen]="isDeleteExpenseModalOpen()"
+  title="Delete Expense Record"
+  [message]="'Are you sure you want to remove expense: ' + (expenseToDelete()?.title || '') + '?'"
+  confirmText="Delete Expense"
+  [isDanger]="true"
+  [isLoading]="isDeletingExpense()"
+  (confirm)="confirmDeleteExpense()"
+  (cancel)="closeDeleteExpenseModal()"
+></app-confirm-modal>

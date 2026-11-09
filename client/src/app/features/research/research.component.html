@@ -1,0 +1,164 @@
+<div class="research-page">
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">KNOWLEDGE BASE & PRECEDENTS</div>
+      <h1 class="page-title">Legal Research & Precedents Library</h1>
+      <p class="page-subtitle">Internal repository of case law citations, statutory sections, CPC orders, and research briefs.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" (click)="loadReferences()">
+        <app-icon name="clock" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      <button class="btn btn-primary btn-sm" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="14"></app-icon>
+        <span>Add Reference</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter Toolbar -->
+  <div class="card filter-toolbar">
+    <div class="search-field">
+      <app-icon name="search" [size]="16" color="var(--text-muted)"></app-icon>
+      <input
+        type="text"
+        placeholder="Search by act name, section/rule, citation (e.g. 2024 SCMR), tags..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+        (keydown.enter)="loadReferences()"
+      />
+    </div>
+
+    <div class="filter-controls">
+      <app-custom-select
+        [options]="researchCategoryOptions"
+        [ngModel]="categoryFilter()"
+        (valueChange)="categoryFilter.set($event); loadReferences()"
+        placeholder="All Categories"
+        variant="filter"
+        minWidth="175px"
+        [showSearch]="true"
+      ></app-custom-select>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="cards" [rows]="4"></app-loading-skeleton>
+  } @else if (references().length === 0) {
+    <app-empty-state
+      icon="book-open"
+      title="No research references found"
+      description="Add precedents or research notes to build your firm's proprietary legal library."
+      actionText="Add Legal Precedent"
+      (action)="openCreateModal()"
+    ></app-empty-state>
+  } @else {
+    <div class="references-grid">
+      @for (r of references(); track r.id) {
+        <div class="card ref-card">
+          <div class="ref-top-row">
+            <span class="badge badge-primary text-xs">{{ r.category }}</span>
+            @if (r.citation) {
+              <span class="citation-badge font-mono">{{ r.citation }}</span>
+            }
+          </div>
+
+          <h3 class="ref-title">{{ r.title }}</h3>
+
+          <div class="ref-statute-row text-xs text-muted">
+            <span>{{ r.actName }}</span>
+            @if (r.sectionRule) {
+              <span>· {{ r.sectionRule }}</span>
+            }
+            @if (r.court) {
+              <span>· {{ r.court }} ({{ r.year }})</span>
+            }
+          </div>
+
+          <p class="ref-summary">{{ r.summary }}</p>
+
+          @if (r.tags) {
+            <div class="ref-tags">
+              @for (tag of r.tags.split(','); track tag) {
+                <span class="tag-chip text-xs">#{{ tag.trim() }}</span>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Add Reference Modal -->
+<app-modal
+  [isOpen]="isCreateModalOpen()"
+  title="Add Legal Research Reference"
+  subtitle="Document a key citation, judicial ratio, or statutory provision"
+  maxWidth="640px"
+  (close)="closeCreateModal()"
+>
+  <form [formGroup]="referenceForm">
+    <div class="form-group">
+      <label class="form-label">Subject Title / Legal Ratio *</label>
+      <input type="text" formControlName="title" class="form-control" placeholder="e.g. Principles governing Order 39 interim injunctions" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Category *</label>
+        <select formControlName="category" class="form-control">
+          @for (c of categories; track c) {
+            <option [value]="c">{{ c }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Citation (if any)</label>
+        <input type="text" formControlName="citation" class="form-control font-mono" placeholder="e.g. PLD 2023 SC 450" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-2">
+        <label class="form-label">Statute / Act Name</label>
+        <input type="text" formControlName="actName" class="form-control" placeholder="Code of Civil Procedure, 1908" />
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Section / Rule</label>
+        <input type="text" formControlName="sectionRule" class="form-control" placeholder="Order 39, Rules 1 & 2" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-2">
+        <label class="form-label">Court</label>
+        <input type="text" formControlName="court" class="form-control" placeholder="Supreme Court of Pakistan" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Year</label>
+        <input type="number" formControlName="year" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Precedent Summary / Ratio Decidendi *</label>
+      <textarea formControlName="summary" rows="3" class="form-control" placeholder="Key legal principle held by the court..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Keywords / Tags (comma separated)</label>
+      <input type="text" formControlName="tags" class="form-control" placeholder="Injunction, CPC, Civil, Stay" />
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitReference()">Save to Knowledge Base</button>
+  </div>
+</app-modal>
+

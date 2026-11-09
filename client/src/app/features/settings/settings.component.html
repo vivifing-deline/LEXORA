@@ -1,0 +1,513 @@
+<div class="settings-page">
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">CHAMBERS ADMINISTRATION</div>
+      <h1 class="page-title">Workspace Settings & Administration</h1>
+      <p class="page-subtitle">Configure practice profile, courts, master taxonomies, and manage database backups.</p>
+    </div>
+
+    <div class="header-actions">
+      <div class="view-toggle-box">
+        <button class="view-btn" [class.active]="activeTab() === 'environment'" (click)="activeTab.set('environment')">
+          <app-icon name="server" [size]="14"></app-icon>
+          <span>Environment & Backups</span>
+        </button>
+        <button class="view-btn" [class.active]="activeTab() === 'profile'" (click)="activeTab.set('profile')">
+          <app-icon name="settings" [size]="14"></app-icon>
+          <span>Firm Profile</span>
+        </button>
+        <button class="view-btn" [class.active]="activeTab() === 'courts'" (click)="activeTab.set('courts')">
+          <app-icon name="gavel" [size]="14"></app-icon>
+          <span>Courts & Judges</span>
+        </button>
+        <button class="view-btn" [class.active]="activeTab() === 'master'" (click)="activeTab.set('master')">
+          <app-icon name="folder" [size]="14"></app-icon>
+          <span>Departments & Practice Areas</span>
+        </button>
+        <button class="view-btn" [class.active]="activeTab() === 'audit'" (click)="activeTab.set('audit')">
+          <app-icon name="shield" [size]="14"></app-icon>
+          <span>Audit Log ({{ auditLogs().length }})</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="table" [rows]="8"></app-loading-skeleton>
+  } @else {
+    <!-- ========================================== -->
+    <!-- TAB 1: ENVIRONMENT & DATA MANAGEMENT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'environment') {
+      <div class="two-col-grid mb-4">
+        <!-- Environment Status Card -->
+        <div class="card info-pane-card">
+          <div class="card-header-row">
+            <h3 class="pane-title">Runtime Environment</h3>
+            <span class="badge" [ngClass]="envInfo()?.appMode === 'demo' ? 'badge-warning' : 'badge-success'">
+              {{ envInfo()?.appMode === 'demo' ? 'DEMO MODE' : 'NORMAL APP MODE' }}
+            </span>
+          </div>
+
+          <div class="env-info-table">
+            <div class="info-group">
+              <span class="info-label">Active Database:</span>
+              <span class="info-value font-mono font-bold">{{ envInfo()?.databaseName || 'lexora.db' }}</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Database Engine:</span>
+              <span class="info-value font-mono">{{ envInfo()?.databaseType }} (Connected)</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Node Environment:</span>
+              <span class="info-value font-mono">{{ envInfo()?.nodeEnv }}</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Application Version:</span>
+              <span class="info-value font-mono">v{{ envInfo()?.version }}</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Last Database Backup:</span>
+              <span class="info-value">{{ envInfo()?.lastBackupDate ? (envInfo()?.lastBackupDate | date:'medium') : 'No backup taken yet' }}</span>
+            </div>
+          </div>
+
+          <div class="env-actions-footer mt-4 pt-3 border-top">
+            @if (envInfo()?.appMode === 'demo') {
+              <button class="btn btn-warning btn-sm" (click)="isResetModalOpen.set(true)">
+                <app-icon name="rotate-ccw" [size]="14"></app-icon>
+                <span>Reset Demo Dataset</span>
+              </button>
+            } @else {
+              <button class="btn btn-primary btn-sm" [disabled]="isBackingUp()" (click)="createBackup()">
+                @if (isBackingUp()) {
+                  <span class="spinner-small mr-1"></span>
+                }
+                <app-icon name="database" [size]="14"></app-icon>
+                <span>Create Database Backup</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Mode Specific Showcase Details -->
+        <div class="card info-pane-card">
+          @if (envInfo()?.appMode === 'demo') {
+            <h3 class="pane-title">Configured Presentation Accounts</h3>
+            <p class="text-xs text-muted mb-3">Pre-seeded demo credentials for stakeholders & CTO evaluation:</p>
+
+            <div class="demo-accounts-table">
+              @for (acc of demoAccounts; track acc.email) {
+                <div class="demo-acc-row">
+                  <div class="demo-acc-role font-bold text-xs">{{ acc.role }}</div>
+                  <div class="demo-acc-email font-mono text-xs">{{ acc.email }}</div>
+                  <div class="demo-acc-pwd font-mono text-xs text-muted">{{ acc.password }}</div>
+                </div>
+              }
+            </div>
+          } @else {
+            <h3 class="pane-title">Production Controls</h3>
+            <p class="text-xs text-muted mb-3">Operating with isolated clean database (no demo mockups):</p>
+            <div class="info-group">
+              <span class="info-label">Data Isolation:</span>
+              <span class="badge badge-success text-xs">Strict SQLite Separation</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Demo Seeding:</span>
+              <span class="badge badge-neutral text-xs">Disabled</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Demo Reset:</span>
+              <span class="badge badge-neutral text-xs">Prohibited</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- TAB 2: FIRM PROFILE -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'profile') {
+      <div class="card max-w-700">
+        <h3 class="pane-title mb-3">Chambers Information</h3>
+        <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label required">Practice Name</label>
+              <input type="text" class="form-control" formControlName="name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Legal Entity Name</label>
+              <input type="text" class="form-control" formControlName="legalName" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Bar / Firm Registration No</label>
+              <input type="text" class="form-control" formControlName="registrationNo" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Chambers Email</label>
+              <input type="email" class="form-control" formControlName="email" />
+            </div>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Phone Number</label>
+              <input type="text" class="form-control" formControlName="phone" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Principal City</label>
+              <input type="text" class="form-control" formControlName="city" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Head Office Address</label>
+            <textarea class="form-control" rows="2" formControlName="address"></textarea>
+          </div>
+
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Currency Code</label>
+              <input type="text" class="form-control" formControlName="currency" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Currency Symbol</label>
+              <input type="text" class="form-control" formControlName="currencySymbol" />
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-top flex justify-end">
+            <button type="submit" class="btn btn-primary">Save Profile Settings</button>
+          </div>
+        </form>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- TAB 3: COURTS & JUDGES -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'courts') {
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="pane-title">Courts & Judicial Directory</h3>
+          <p class="text-xs text-muted">Configured courts, tribunals, and associated benches.</p>
+        </div>
+        <button class="btn btn-primary btn-sm" (click)="openCreateCourtModal()">
+          <app-icon name="plus" [size]="14"></app-icon>
+          <span>Add Court</span>
+        </button>
+      </div>
+
+      <div class="courts-list-grid">
+        @for (c of courts(); track c.id) {
+          <div class="card court-card">
+            <div class="court-header">
+              <div>
+                <span class="court-name font-bold">{{ c.name }}</span>
+                <span class="court-type badge badge-neutral text-xs ml-2">{{ c.type }}</span>
+              </div>
+              <div class="court-actions">
+                <button class="icon-btn" title="Add Judge" (click)="openAddJudgeModal(c.id)">
+                  <app-icon name="user-plus" [size]="14"></app-icon>
+                </button>
+                <button class="icon-btn" title="Edit Court" (click)="openEditCourtModal(c)">
+                  <app-icon name="edit" [size]="14"></app-icon>
+                </button>
+                <button class="icon-btn text-danger" title="Delete Court" (click)="deleteCourt(c)">
+                  <app-icon name="trash-2" [size]="14"></app-icon>
+                </button>
+              </div>
+            </div>
+
+            <div class="court-location text-xs text-muted">
+              {{ c.city }}{{ c.jurisdiction ? ' · ' + c.jurisdiction : '' }}{{ c.roomNumber ? ' · Room ' + c.roomNumber : '' }}
+            </div>
+
+            <div class="judges-sublist mt-3">
+              <div class="text-xs font-bold text-muted mb-2">JUDGES ({{ c.judges?.length || 0 }}):</div>
+              @for (j of c.judges; track j.id) {
+                <div class="judge-row">
+                  <span class="text-xs font-medium">{{ j.designation }} {{ j.name }}</span>
+                  <button class="icon-btn-micro text-danger" title="Remove Judge" (click)="deleteJudge(j)">
+                    <app-icon name="x" [size]="12"></app-icon>
+                  </button>
+                </div>
+              } @empty {
+                <span class="text-xs text-muted italic">No judges added to this court yet.</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- TAB 4: DEPARTMENTS & PRACTICE AREAS -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'master') {
+      <div class="two-col-grid">
+        <!-- Departments Column -->
+        <div class="card">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="pane-title">Departments</h3>
+            <button class="btn btn-primary btn-xs" (click)="openCreateDeptModal()">
+              <app-icon name="plus" [size]="13"></app-icon>
+              <span>Add Dept</span>
+            </button>
+          </div>
+
+          <div class="master-list">
+            @for (d of departments(); track d.id) {
+              <div class="master-item">
+                <div>
+                  <div class="font-bold text-sm">{{ d.name }}</div>
+                  <div class="text-xs text-muted">{{ d.description || 'No description' }}</div>
+                </div>
+                <button class="icon-btn text-danger" (click)="deleteDepartment(d)">
+                  <app-icon name="trash-2" [size]="14"></app-icon>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Practice Areas Column -->
+        <div class="card">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="pane-title">Practice Areas</h3>
+            <button class="btn btn-primary btn-xs" (click)="openCreateAreaModal()">
+              <app-icon name="plus" [size]="13"></app-icon>
+              <span>Add Practice Area</span>
+            </button>
+          </div>
+
+          <div class="master-list">
+            @for (p of practiceAreas(); track p.id) {
+              <div class="master-item">
+                <div>
+                  <div class="font-bold text-sm">{{ p.name }} <span class="badge badge-neutral text-xs ml-1">{{ p.code }}</span></div>
+                  <div class="text-xs text-muted">{{ p.description || 'Practice Domain' }}</div>
+                </div>
+                <button class="icon-btn text-danger" (click)="deletePracticeArea(p)">
+                  <app-icon name="trash-2" [size]="14"></app-icon>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- TAB 5: AUDIT LOG -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'audit') {
+      <div class="card table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Action</th>
+                <th>Module</th>
+                <th>Entity / Reference</th>
+                <th>Operator</th>
+                <th>IP Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (log of auditLogs(); track log.id) {
+                <tr>
+                  <td><span class="font-mono text-xs">{{ log.createdAt | date:'medium' }}</span></td>
+                  <td>
+                    <span class="badge" [ngClass]="log.action === 'CREATE' ? 'badge-success' : log.action === 'DELETE' ? 'badge-danger' : log.action === 'LOGIN' ? 'badge-primary' : 'badge-neutral'">
+                      {{ log.action }}
+                    </span>
+                  </td>
+                  <td><span class="font-bold text-xs">{{ log.module }}</span></td>
+                  <td>
+                    <span class="font-mono text-xs">{{ log.entityName || log.entityId || 'Record' }}</span>
+                  </td>
+                  <td>
+                    <span class="text-xs font-medium">{{ log.user?.fullName || log.user?.email || 'System' }}</span>
+                  </td>
+                  <td><span class="font-mono text-xs text-muted">{{ log.ipAddress || '127.0.0.1' }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<!-- ========================================== -->
+<!-- COURT MODAL -->
+<!-- ========================================== -->
+<app-modal
+  [isOpen]="isCourtModalOpen()"
+  [title]="isEditCourt() ? 'Edit Court Record' : 'Register New Court / Forum'"
+  maxWidth="500px"
+  [showFooter]="true"
+  (close)="isCourtModalOpen.set(false)"
+>
+  <form [formGroup]="courtForm" (ngSubmit)="saveCourt()">
+    <div class="form-group">
+      <label class="form-label required">Court Name</label>
+      <input type="text" class="form-control" formControlName="name" placeholder="e.g. High Court of Balochistan" />
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label required">Type</label>
+        <select class="form-control" formControlName="type">
+          <option value="Supreme Court">Supreme Court</option>
+          <option value="High Court">High Court</option>
+          <option value="District Court">District Court</option>
+          <option value="Sessions Court">Sessions Court</option>
+          <option value="Banking Court">Banking Court</option>
+          <option value="Special Tribunal">Special Tribunal</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">City</label>
+        <input type="text" class="form-control" formControlName="city" placeholder="e.g. Quetta" />
+      </div>
+    </div>
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Jurisdiction</label>
+        <input type="text" class="form-control" formControlName="jurisdiction" placeholder="e.g. Balochistan" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Room / Bench</label>
+        <input type="text" class="form-control" formControlName="roomNumber" placeholder="e.g. Courtroom 2" />
+      </div>
+    </div>
+  </form>
+
+  <div slot="footer" class="flex justify-end gap-2">
+    <button class="btn btn-secondary" (click)="isCourtModalOpen.set(false)">Cancel</button>
+    <button class="btn btn-primary" (click)="saveCourt()">Save Court</button>
+  </div>
+</app-modal>
+
+<!-- ========================================== -->
+<!-- JUDGE MODAL -->
+<!-- ========================================== -->
+<app-modal
+  [isOpen]="isJudgeModalOpen()"
+  title="Add Judge / Presiding Officer"
+  maxWidth="450px"
+  [showFooter]="true"
+  (close)="isJudgeModalOpen.set(false)"
+>
+  <form [formGroup]="judgeForm" (ngSubmit)="saveJudge()">
+    <div class="form-group">
+      <label class="form-label required">Judge Name</label>
+      <input type="text" class="form-control" formControlName="name" placeholder="e.g. Tariq Mehmood Jahangiri" />
+    </div>
+    <div class="form-group">
+      <label class="form-label required">Designation</label>
+      <input type="text" class="form-control" formControlName="designation" placeholder="e.g. Justice / District & Sessions Judge" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Courtroom</label>
+      <input type="text" class="form-control" formControlName="courtroom" placeholder="e.g. Courtroom 1" />
+    </div>
+  </form>
+
+  <div slot="footer" class="flex justify-end gap-2">
+    <button class="btn btn-secondary" (click)="isJudgeModalOpen.set(false)">Cancel</button>
+    <button class="btn btn-primary" (click)="saveJudge()">Add Judge</button>
+  </div>
+</app-modal>
+
+<!-- ========================================== -->
+<!-- DEPT MODAL -->
+<!-- ========================================== -->
+<app-modal
+  [isOpen]="isDeptModalOpen()"
+  title="Create Practice Department"
+  maxWidth="450px"
+  [showFooter]="true"
+  (close)="isDeptModalOpen.set(false)"
+>
+  <form [formGroup]="deptForm" (ngSubmit)="saveDepartment()">
+    <div class="form-group">
+      <label class="form-label required">Department Name</label>
+      <input type="text" class="form-control" formControlName="name" placeholder="e.g. Tax & Customs" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-control" rows="2" formControlName="description"></textarea>
+    </div>
+  </form>
+  <div slot="footer" class="flex justify-end gap-2">
+    <button class="btn btn-secondary" (click)="isDeptModalOpen.set(false)">Cancel</button>
+    <button class="btn btn-primary" (click)="saveDepartment()">Create</button>
+  </div>
+</app-modal>
+
+<!-- ========================================== -->
+<!-- PRACTICE AREA MODAL -->
+<!-- ========================================== -->
+<app-modal
+  [isOpen]="isAreaModalOpen()"
+  title="Create Practice Area"
+  maxWidth="450px"
+  [showFooter]="true"
+  (close)="isAreaModalOpen.set(false)"
+>
+  <form [formGroup]="areaForm" (ngSubmit)="savePracticeArea()">
+    <div class="form-group">
+      <label class="form-label required">Practice Area Name</label>
+      <input type="text" class="form-control" formControlName="name" placeholder="e.g. Intellectual Property" />
+    </div>
+    <div class="form-group">
+      <label class="form-label required">Code</label>
+      <input type="text" class="form-control" formControlName="code" placeholder="e.g. IP" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-control" rows="2" formControlName="description"></textarea>
+    </div>
+  </form>
+  <div slot="footer" class="flex justify-end gap-2">
+    <button class="btn btn-secondary" (click)="isAreaModalOpen.set(false)">Cancel</button>
+    <button class="btn btn-primary" (click)="savePracticeArea()">Create</button>
+  </div>
+</app-modal>
+
+<!-- ========================================== -->
+<!-- DEMO RESET CONFIRMATION -->
+<!-- ========================================== -->
+<app-confirm-modal
+  [isOpen]="isResetModalOpen()"
+  title="Reset Demo Dataset?"
+  message="This will wipe all client, case, hearing, document, task, and invoice changes made during this presentation and restore the initial clean legal dataset. All demo login accounts will remain ready. Proceed?"
+  confirmText="Restore Initial Demo Data"
+  cancelText="Cancel"
+  [isDanger]="true"
+  [isLoading]="isResetting()"
+  (confirm)="confirmResetDemo()"
+  (cancel)="isResetModalOpen.set(false)"
+></app-confirm-modal>
+
+<!-- ========================================== -->
+<!-- ACTION CONFIRMATION MODAL -->
+<!-- ========================================== -->
+<app-confirm-modal
+  [isOpen]="confirmModal().isOpen"
+  [title]="confirmModal().title"
+  [message]="confirmModal().message"
+  [confirmText]="confirmModal().confirmText"
+  [isDanger]="confirmModal().isDanger"
+  (confirm)="onConfirmModalAction()"
+  (cancel)="closeConfirmModal()"
+></app-confirm-modal>

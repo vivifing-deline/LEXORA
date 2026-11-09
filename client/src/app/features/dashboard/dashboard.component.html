@@ -1,0 +1,384 @@
+<div class="dashboard-page">
+  <!-- Welcome Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">CHAMBERS OVERVIEW & PRACTICE INTELLIGENCE</div>
+      <h1 class="page-title">Executive Litigation Dashboard</h1>
+      <p class="page-subtitle">Real-time proceedings, cause list alerts, financial realization, and task tracking.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" (click)="loadDashboardData()">
+        <app-icon name="clock" [size]="14"></app-icon>
+        <span>Refresh Metrics</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Chambers Quick Actions Ribbon -->
+  <div class="quick-actions-bar card">
+    <div class="quick-actions-label">
+      <app-icon name="zap" [size]="15" color="var(--primary)"></app-icon>
+      <span>Quick Actions</span>
+    </div>
+    <div class="quick-actions-btns">
+      <button class="quick-action-btn" (click)="quickAction('register-case')">
+        <app-icon name="plus" [size]="14"></app-icon>
+        <span>Register Case</span>
+      </button>
+      <button class="quick-action-btn" (click)="quickAction('docket-hearing')">
+        <app-icon name="calendar" [size]="14"></app-icon>
+        <span>Docket Hearing</span>
+      </button>
+      <button class="quick-action-btn" (click)="quickAction('record-payment')">
+        <app-icon name="credit-card" [size]="14"></app-icon>
+        <span>Record Fee Payment</span>
+      </button>
+      <button class="quick-action-btn" (click)="quickAction('conflict-check')">
+        <app-icon name="shield-alert" [size]="14"></app-icon>
+        <span>Run Conflict Check</span>
+      </button>
+      <button class="quick-action-btn" (click)="quickAction('new-task')">
+        <app-icon name="check-square" [size]="14"></app-icon>
+        <span>Assign Task</span>
+      </button>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="cards" [rows]="4"></app-loading-skeleton>
+    <div class="mt-4">
+      <app-loading-skeleton type="table" [rows]="5"></app-loading-skeleton>
+    </div>
+  } @else if (data()) {
+    <!-- Urgent 24-Hour Hearing Alert Banner -->
+    @if (urgentHearings().length > 0) {
+      <div class="urgent-cause-list-banner">
+        <div class="urgent-banner-left">
+          <div class="urgent-icon-pill">
+            <app-icon name="alert-triangle" [size]="16" color="#ffffff"></app-icon>
+          </div>
+          <div class="urgent-banner-text">
+            <strong>Urgent Cause List Alert:</strong>
+            <span>You have {{ urgentHearings().length }} court appearance(s) listed within the next 48 hours.</span>
+          </div>
+        </div>
+        <div class="urgent-banner-actions">
+          <a routerLink="/hearings" class="btn-urgent-view">
+            <span>View Cause List</span>
+            <app-icon name="arrow-right" [size]="13"></app-icon>
+          </a>
+        </div>
+      </div>
+    }
+
+    <!-- 8 Role-Aware Clickable KPI Cards -->
+    <div class="kpi-grid">
+      <app-stat-card
+        label="Active Cases"
+        [value]="data().kpis.activeCases"
+        icon="briefcase"
+        iconBg="var(--primary-light)"
+        iconColor="var(--primary)"
+        [clickable]="true"
+        (click)="navigateWithFilter('/cases', { status: 'active' })"
+        subtext="Litigation in progress"
+      ></app-stat-card>
+
+      <app-stat-card
+        label="Upcoming Hearings"
+        [value]="data().kpis.upcomingHearings"
+        icon="gavel"
+        iconBg="#FEF3C7"
+        iconColor="#D97706"
+        [clickable]="true"
+        (click)="navigateWithFilter('/hearings', { status: 'scheduled' })"
+        subtext="Scheduled before courts"
+      ></app-stat-card>
+
+      <app-stat-card
+        label="Pending Tasks"
+        [value]="data().kpis.pendingTasks"
+        icon="check-square"
+        iconBg="#E0F2FE"
+        iconColor="#0284C7"
+        [clickable]="true"
+        (click)="navigateWithFilter('/tasks', { status: 'todo' })"
+        subtext="Drafting & filings"
+      ></app-stat-card>
+
+      <app-stat-card
+        label="Active Clients"
+        [value]="data().kpis.activeClients"
+        icon="users"
+        iconBg="#DCFCE7"
+        iconColor="#16A34A"
+        [clickable]="true"
+        (click)="navigateWithFilter('/clients', { status: 'active' })"
+        subtext="Corporate & retained"
+      ></app-stat-card>
+
+      <app-stat-card
+        label="Total Fees Billed"
+        [value]="formatCurrency(data().kpis.totalBilled)"
+        icon="credit-card"
+        iconBg="var(--primary-light)"
+        iconColor="var(--primary)"
+        [clickable]="true"
+        (click)="navigateWithFilter('/finance', {})"
+        subtext="Issued fee invoices"
+      ></app-stat-card>
+
+      <app-stat-card
+        label="Realized Revenue"
+        [value]="formatCurrency(data().kpis.totalPaid)"
+        icon="dollar-sign"
+        iconBg="#DCFCE7"
+        iconColor="#16A34A"
+        [clickable]="true"
+        (click)="navigateWithFilter('/finance', { status: 'paid' })"
+        subtext="Payments cleared"
+      ></app-stat-card>
+
+      <app-stat-card
+        label="Outstanding Balance"
+        [value]="formatCurrency(data().kpis.outstandingBalance)"
+        icon="alert-circle"
+        iconBg="#FEE2E2"
+        iconColor="#EF4444"
+        [clickable]="true"
+        (click)="navigateWithFilter('/finance', { status: 'partial' })"
+        subtext="Awaiting settlement"
+      ></app-stat-card>
+
+      <app-stat-card
+        label="Litigation Expenses"
+        [value]="formatCurrency(data().kpis.totalExpenses)"
+        icon="tag"
+        iconBg="#F1F5F9"
+        iconColor="#475569"
+        [clickable]="true"
+        (click)="navigateWithFilter('/finance', {})"
+        subtext="Court fees & filings"
+      ></app-stat-card>
+    </div>
+
+    <!-- Case Lifecycle Pipeline Stages Widget -->
+    <div class="card pipeline-card">
+      <div class="card-header-clean">
+        <div>
+          <h3 class="card-title">Case Stage Pipeline</h3>
+          <p class="card-desc">Active litigation distribution across court procedure stages (Click to view cases)</p>
+        </div>
+        <span class="badge badge-primary">{{ data().kpis.activeCases }} Active Matters</span>
+      </div>
+
+      <div class="pipeline-track">
+        @for (st of pipelineStages(); track st.name) {
+          <div class="pipeline-stage-box" (click)="navigateWithFilter('/cases', { stage: st.name })">
+            <div class="stage-top">
+              <span class="stage-dot" [style.background]="st.color"></span>
+              <span class="stage-name">{{ st.name }}</span>
+            </div>
+            <div class="stage-count" [style.color]="st.color">{{ st.count }}</div>
+            <div class="stage-bar-sub" [style.background]="st.color"></div>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Analytics Visual Section -->
+    <div class="analytics-row">
+      <!-- Practice Area Distribution -->
+      <div class="card analytics-card">
+        <div class="card-header-clean">
+          <div>
+            <h3 class="card-title">Cases by Practice Area</h3>
+            <p class="card-desc">Distribution across legal domains</p>
+          </div>
+          <span class="badge badge-primary">{{ data().kpis.totalCases }} Total</span>
+        </div>
+
+        <div class="practice-distribution-list">
+          @for (pa of data().charts.casesByPracticeArea; track pa.name) {
+            <div class="distribution-item">
+              <div class="dist-meta">
+                <span class="dist-name">{{ pa.name }}</span>
+                <span class="dist-count">{{ pa.count }} case(s)</span>
+              </div>
+              <div class="dist-bar-track">
+                <div
+                  class="dist-bar-fill"
+                  [style.width.%]="(pa.count / (data().kpis.totalCases || 1)) * 100"
+                ></div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Financial Health & Realization -->
+      <div class="card analytics-card financial-card">
+        <div class="card-header-clean">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="card-title">Financial Realization</h3>
+              <span class="badge badge-success text-xs">
+                {{ data().kpis.totalBilled > 0 ? ((data().kpis.totalPaid / data().kpis.totalBilled) * 100 | number:'1.0-1') : 100 }}% Realized
+              </span>
+            </div>
+            <p class="card-desc">Revenue collection vs. Outstanding receivables & cash inflow</p>
+          </div>
+          <a routerLink="/finance" class="text-btn text-xs">Billing & Invoices →</a>
+        </div>
+
+        <!-- Metric KPI Summary Tiles -->
+        <div class="fin-metrics-row">
+          <div class="fin-metric-tile">
+            <span class="tile-label">Total Invoiced</span>
+            <span class="tile-val font-mono">{{ formatCurrency(data().kpis.totalBilled) }}</span>
+            <span class="tile-sub text-muted">25 active fee bills</span>
+          </div>
+          <div class="fin-metric-tile highlight-green">
+            <span class="tile-label">Collected</span>
+            <span class="tile-val text-success font-mono">{{ formatCurrency(data().kpis.totalPaid) }}</span>
+            <span class="tile-sub text-success">Cleared bank funds</span>
+          </div>
+          <div class="fin-metric-tile highlight-amber">
+            <span class="tile-label">Outstanding</span>
+            <span class="tile-val text-warning font-mono">{{ formatCurrency(data().kpis.outstandingBalance) }}</span>
+            <span class="tile-sub text-warning">Pending recovery</span>
+          </div>
+        </div>
+
+        <!-- Realization Dual Progress Bar -->
+        <div class="financial-breakdown">
+          <div class="fin-progress-bar">
+            <div
+              class="fin-segment segment-collected"
+              [style.width.%]="data().kpis.totalBilled > 0 ? ((data().kpis.totalPaid / data().kpis.totalBilled) * 100) : 100"
+              title="Collected Revenue"
+            ></div>
+            <div
+              class="fin-segment segment-outstanding"
+              [style.width.%]="data().kpis.totalBilled > 0 ? ((data().kpis.outstandingBalance / data().kpis.totalBilled) * 100) : 0"
+              title="Outstanding Receivables"
+            ></div>
+          </div>
+
+          <div class="fin-legend">
+            <div class="legend-item">
+              <span class="legend-dot collected-dot"></span>
+              <span>Paid: {{ formatCurrency(data().kpis.totalPaid) }}</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot outstanding-dot"></span>
+              <span>Receivable: {{ formatCurrency(data().kpis.outstandingBalance) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Fee Settlements & Collections Stream -->
+        <div class="recent-receipts-section">
+          <div class="receipts-header">
+            <span class="receipts-title">Recent Fee Settlements & Collections</span>
+            <span class="badge badge-neutral text-xs">Live Transactions</span>
+          </div>
+
+          <div class="receipts-list">
+            @for (pmt of (data().widgets?.recentPayments || []); track pmt.id) {
+              <div class="receipt-item">
+                <div class="receipt-icon-box">
+                  <app-icon name="credit-card" [size]="14"></app-icon>
+                </div>
+                <div class="receipt-details">
+                  <div class="receipt-client font-bold text-xs">{{ pmt.invoice?.client?.name || 'Chamber Retainer' }}</div>
+                  <div class="receipt-meta text-muted text-xs">
+                    {{ pmt.invoice?.invoiceNumber }} · {{ pmt.paymentMethod }} · {{ pmt.paymentDate | date:'mediumDate' }}
+                  </div>
+                </div>
+                <div class="receipt-amount font-mono text-success font-bold text-xs">
+                  +{{ formatCurrency(pmt.amount) }}
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Widgets Grid: Hearings, Tasks & Firm Activity Stream -->
+    <div class="widgets-grid">
+      <!-- Upcoming Court Hearings -->
+      <div class="card widget-card">
+        <div class="card-header-clean">
+          <div>
+            <h3 class="card-title">Court Cause List & Hearings</h3>
+            <p class="card-desc">Immediate hearings scheduled across courts</p>
+          </div>
+          <a routerLink="/hearings" class="text-btn text-xs">Full Cause List →</a>
+        </div>
+
+        <div class="hearings-list">
+          @for (h of data().widgets.upcomingHearings; track h.id) {
+            <div class="hearing-item" (click)="navigateWithFilter('/cases/' + h.case.id, {})">
+              <div class="hearing-date-badge">
+                <span class="h-day">{{ h.hearingDate | date:'dd' }}</span>
+                <span class="h-month">{{ h.hearingDate | date:'MMM' }}</span>
+              </div>
+              <div class="hearing-meta">
+                <div class="h-case-title">{{ h.case.title }}</div>
+                <div class="h-court-sub">
+                  <span class="font-mono">{{ h.case.internalReference }}</span>
+                  <span>·</span>
+                  <span>{{ h.court?.name || 'High Court' }}</span>
+                  <span>·</span>
+                  <span class="text-primary font-medium">{{ h.hearingTime || '09:30 AM' }}</span>
+                </div>
+                <div class="h-purpose">{{ h.purpose }}</div>
+              </div>
+              <div class="h-advocate-tag">
+                <app-icon name="user" [size]="12"></app-icon>
+                <span>{{ h.assignedAdvocate?.firstName || 'Assigned Counsel' }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Priority Action Tasks -->
+      <div class="card widget-card">
+        <div class="card-header-clean">
+          <div>
+            <h3 class="card-title">Priority Tasks & Deadlines</h3>
+            <p class="card-desc">Legal drafting, evidence and research duties</p>
+          </div>
+          <a routerLink="/tasks" class="text-btn text-xs">View Kanban →</a>
+        </div>
+
+        <div class="tasks-list">
+          @for (t of data().widgets.priorityTasks; track t.id) {
+            <div class="task-item">
+              <div class="task-checkbox-mock">
+                <app-icon name="check" [size]="12" color="var(--primary)"></app-icon>
+              </div>
+              <div class="task-meta">
+                <div class="task-title">{{ t.title }}</div>
+                <div class="task-sub">
+                  <span class="badge badge-neutral text-xs">{{ t.taskType }}</span>
+                  @if (t.case) {
+                    <span class="font-mono text-xs">{{ t.case.internalReference }}</span>
+                  }
+                  <span class="task-due-date">Due: {{ t.dueDate | date:'mediumDate' }}</span>
+                </div>
+              </div>
+              <span class="badge" [ngClass]="t.priority === 'urgent' ? 'badge-danger' : t.priority === 'high' ? 'badge-warning' : 'badge-primary'">
+                {{ t.priority }}
+              </span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

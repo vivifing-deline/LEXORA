@@ -1,0 +1,232 @@
+<div class="documents-page">
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">LEGAL ARCHIVES & PLEADINGS</div>
+      <h1 class="page-title">Document Management Vault</h1>
+      <p class="page-subtitle">Encrypted local repository for plaints, applications, orders, and evidence exhibits.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" (click)="loadDocuments()">
+        <app-icon name="clock" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      @if (authService.hasPermission('document.upload')) {
+        <button class="btn btn-primary btn-sm" (click)="openUploadModal()">
+          <app-icon name="upload" [size]="14"></app-icon>
+          <span>Upload Document</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Filter Toolbar -->
+  <div class="card filter-toolbar">
+    <div class="search-field">
+      <app-icon name="search" [size]="16" color="var(--text-muted)"></app-icon>
+      <input
+        type="text"
+        placeholder="Search documents by title, file name, category, or tags..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+        (keydown.enter)="loadDocuments()"
+      />
+    </div>
+
+    <div class="filter-controls">
+      <app-custom-select
+        [options]="categoryOptions"
+        [ngModel]="categoryFilter()"
+        (valueChange)="categoryFilter.set($event); loadDocuments()"
+        placeholder="All Categories"
+        variant="filter"
+        minWidth="160px"
+      ></app-custom-select>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="cards" [rows]="6"></app-loading-skeleton>
+  } @else if (documents().length === 0) {
+    <app-empty-state
+      icon="file-text"
+      title="No documents found"
+      description="No legal documents match your search criteria. Upload your first pleading or order."
+      actionText="Upload Document"
+      (action)="openUploadModal()"
+    ></app-empty-state>
+  } @else {
+    <div class="docs-grid">
+      @for (d of documents(); track d.id) {
+        <div class="card doc-item-card">
+          <div class="doc-icon-badge">
+            <app-icon name="file-text" [size]="24" color="var(--primary)"></app-icon>
+          </div>
+
+          <div class="doc-info-block">
+            <div class="doc-title-main" [title]="d.title">{{ d.title }}</div>
+            <div class="doc-meta-line">
+              <span class="badge badge-primary text-xs">{{ d.category }}</span>
+              <span class="doc-size font-mono text-xs">{{ d.fileSize / 1024 | number:'1.0-0' }} KB</span>
+              <span class="text-xs text-muted">v{{ d.version }}</span>
+            </div>
+
+            @if (d.case) {
+              <div class="doc-case-link">
+                <app-icon name="briefcase" [size]="12"></app-icon>
+                <span>{{ d.case.internalReference }}</span>
+              </div>
+            }
+
+            <div class="doc-uploader-sub text-xs text-muted">
+              Uploaded by {{ d.uploadedBy?.firstName }} · {{ d.createdAt | date:'mediumDate' }}
+            </div>
+          </div>
+
+          <div class="doc-action-bar">
+            <a
+              [href]="getDownloadUrl(d.id)"
+              target="_blank"
+              class="btn btn-secondary btn-sm"
+              title="Download file"
+            >
+              <app-icon name="download" [size]="14"></app-icon>
+              <span>Download</span>
+            </a>
+            @if (authService.hasPermission('document.upload')) {
+              <button class="btn btn-secondary btn-sm" (click)="openEditModal(d)" title="Edit Metadata">
+                <app-icon name="edit" [size]="14"></app-icon>
+              </button>
+            }
+            @if (authService.hasPermission('document.delete')) {
+              <button class="btn btn-danger btn-sm" (click)="openDeleteModal(d)" title="Delete Document">
+                <app-icon name="trash" [size]="14"></app-icon>
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+    <div class="card" style="padding: 0; margin-top: 1rem; overflow: hidden;">
+      <app-pagination
+        [page]="page()"
+        [limit]="limit()"
+        [total]="total()"
+        [totalPages]="totalPages()"
+        (pageChange)="onPageChange($event)"
+        (limitChange)="onLimitChange($event)"
+      ></app-pagination>
+    </div>
+  }
+</div>
+
+<!-- Upload Modal -->
+<app-modal
+  [isOpen]="isUploadModalOpen()"
+  title="Upload Legal Document to Vault"
+  subtitle="Upload documents securely with metadata and case associations"
+  maxWidth="600px"
+  (close)="closeUploadModal()"
+>
+  <form [formGroup]="uploadForm" class="upload-form">
+    <div class="form-group">
+      <label class="form-label">Select File * (PDF, DOC, DOCX, JPG, PNG)</label>
+      <input type="file" (change)="onFileSelected($event)" class="form-control" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Document Title *</label>
+      <input type="text" formControlName="title" class="form-control" placeholder="e.g. Plaint with Annexures" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Document Category *</label>
+        <select formControlName="category" class="form-control">
+          @for (cat of categories; track cat) {
+            <option [value]="cat">{{ cat }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Tags</label>
+        <input type="text" formControlName="tags" class="form-control" placeholder="e.g. Injunction, Urgent" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Associate with Legal Case</label>
+      <app-multi-select
+        [options]="caseOptions()"
+        placeholder="Link to case dossier..."
+        [singleSelect]="true"
+        formControlName="caseId"
+      ></app-multi-select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description / Summary of Document</label>
+      <textarea formControlName="description" rows="2" class="form-control" placeholder="Notes on verified pages, certified copies..."></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeUploadModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitUpload()">Upload Document</button>
+  </div>
+</app-modal>
+
+<!-- Edit Document Metadata Modal -->
+<app-modal
+  [isOpen]="isEditModalOpen()"
+  title="Edit Document Metadata"
+  subtitle="Update document classification and tags"
+  maxWidth="540px"
+  (close)="closeEditModal()"
+>
+  <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
+    <div class="form-group">
+      <label class="form-label">Document Title *</label>
+      <input type="text" formControlName="title" class="form-control" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Document Category *</label>
+      <select formControlName="category" class="form-control">
+        @for (cat of categories; track cat) {
+          <option [value]="cat">{{ cat }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tags / Keywords</label>
+      <input type="text" formControlName="tags" class="form-control" placeholder="e.g. urgent, draft, certified" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description / Filing Notes</label>
+      <textarea formControlName="description" rows="2" class="form-control"></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeEditModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitEdit()">Save Changes</button>
+  </div>
+</app-modal>
+
+<!-- Confirm Delete Document Modal -->
+<app-confirm-modal
+  [isOpen]="isDeleteModalOpen()"
+  title="Delete Vault Document"
+  [message]="'Are you sure you want to permanently delete ' + (docToDelete()?.title || '') + '? This file will be removed from storage.'"
+  confirmText="Delete Document"
+  [isDanger]="true"
+  [isLoading]="isDeleting()"
+  (confirm)="confirmDeleteDocument()"
+  (cancel)="closeDeleteModal()"
+></app-confirm-modal>
+
+

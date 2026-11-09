@@ -1,0 +1,317 @@
+<div class="app-layout" [class.sidebar-collapsed]="isCollapsed()">
+  <!-- Toast System -->
+  <app-toast-container></app-toast-container>
+
+  <!-- Mobile Overlay -->
+  @if (isMobileOpen()) {
+    <div class="mobile-backdrop" (click)="toggleMobileNav()"></div>
+  }
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar" [class.mobile-open]="isMobileOpen()">
+    <!-- Brand Header -->
+    <div class="sidebar-header">
+      <div class="brand-container">
+        <div class="brand-logo-mark">
+          <app-icon name="scale" [size]="20" color="#FFFFFF"></app-icon>
+        </div>
+        @if (!isCollapsed()) {
+          <div class="brand-text">
+            <span class="brand-name">LEXORA</span>
+            <span class="brand-tagline">Practice Management</span>
+          </div>
+        }
+      </div>
+
+      <!-- Mobile Close Button -->
+      <button class="mobile-close-btn" (click)="toggleMobileNav()">
+        <app-icon name="x" [size]="20"></app-icon>
+      </button>
+    </div>
+
+    <!-- Navigation Menu -->
+    <nav class="sidebar-nav">
+      <div class="nav-section-title" *ngIf="!isCollapsed()">PRACTICE MODULES</div>
+      @for (item of navItems; track item.route) {
+        @if (canAccess(item)) {
+          <a
+            [routerLink]="item.route"
+            routerLinkActive="active"
+            class="nav-link"
+            [title]="isCollapsed() ? item.label : ''"
+          >
+            <div class="nav-icon-box">
+              <app-icon [name]="item.icon" [size]="19"></app-icon>
+            </div>
+            @if (!isCollapsed()) {
+              <span class="nav-label">{{ item.label }}</span>
+              @if (item.badge) {
+                <span class="nav-badge">{{ item.badge }}</span>
+              }
+            }
+          </a>
+        }
+      }
+    </nav>
+
+    <!-- Sidebar Footer / Workspace Info -->
+    <div class="sidebar-footer">
+      <div class="workspace-pill" *ngIf="!isCollapsed()">
+        <div class="workspace-dot" [class.demo-dot]="configService.isDemoMode()"></div>
+        <div class="workspace-info">
+          <span class="ws-name">LEXORA Chambers</span>
+          <span class="ws-status">{{ configService.isDemoMode() ? 'DEMO MODE' : 'NORMAL MODE' }} · SQLite</span>
+        </div>
+      </div>
+      <button class="collapse-toggle-btn" (click)="toggleSidebar()" [title]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
+        <app-icon [name]="isCollapsed() ? 'chevron-right' : 'chevron-left'" [size]="16"></app-icon>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Layout -->
+  <div class="app-main-wrapper">
+    <!-- Demo Environment Banner (Only in Demo Mode) -->
+    @if (configService.isDemoMode()) {
+      <div class="demo-environment-banner">
+        <div class="demo-banner-left">
+          <span class="demo-badge-pill">DEMO ENVIRONMENT</span>
+          <span class="demo-banner-text">Realistic practice records active. Data persists locally until explicitly reset.</span>
+        </div>
+        <div class="demo-banner-right">
+          @if (authService.hasRole('Firm Admin') && configService.isDemoResetEnabled()) {
+            <button class="btn-demo-reset" (click)="isResetModalOpen.set(true)" title="Restore clean initial presentation data">
+              <app-icon name="rotate-ccw" [size]="13"></app-icon>
+              <span>Reset Demo Data</span>
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Top Header Navigation -->
+    <header class="app-header">
+      <div class="header-left">
+        <!-- Mobile hamburger -->
+        <button class="menu-toggle-btn mobile-only" (click)="toggleMobileNav()">
+          <app-icon name="menu" [size]="20"></app-icon>
+        </button>
+
+        <!-- Breadcrumbs -->
+        <div class="breadcrumbs">
+          <span class="breadcrumb-root">
+            <app-icon name="scale" [size]="14" color="var(--primary)"></app-icon>
+            LEXORA
+          </span>
+          @for (crumb of breadcrumbs(); track crumb) {
+            <span class="breadcrumb-separator">/</span>
+            <span class="breadcrumb-current">{{ crumb }}</span>
+          }
+        </div>
+      </div>
+
+      <!-- Header Search and Actions -->
+      <div class="header-right">
+        <!-- Global Search Trigger -->
+        <button class="header-search-btn" (click)="toggleSearchModal()">
+          <app-icon name="search" [size]="16" color="var(--text-muted)"></app-icon>
+          <span class="search-placeholder">Search cases, clients, records...</span>
+          <kbd class="search-shortcut">⌘K</kbd>
+        </button>
+
+        <!-- Quick Action Button -->
+        <a routerLink="/cases" class="btn btn-primary btn-sm action-btn">
+          <app-icon name="plus" [size]="15"></app-icon>
+          <span>New Case</span>
+        </a>
+
+        <!-- Theme Switcher -->
+        <button class="icon-action-btn" (click)="themeService.toggleTheme()" [title]="themeService.isDark() ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+          <app-icon [name]="themeService.isDark() ? 'sun' : 'moon'" [size]="18"></app-icon>
+        </button>
+
+        <!-- Notifications Dropdown -->
+        <div class="notification-container">
+          <button class="icon-action-btn" (click)="toggleNotification()" title="Notifications">
+            <app-icon name="bell" [size]="18"></app-icon>
+            @if (unreadNotificationCount() > 0) {
+              <span class="notification-badge">{{ unreadNotificationCount() }}</span>
+            }
+          </button>
+
+          @if (isNotificationOpen()) {
+            <div class="dropdown-popover notification-popover">
+              <div class="popover-header">
+                <div class="popover-title-row">
+                  <span class="popover-title">Notifications</span>
+                  @if (unreadNotificationCount() > 0) {
+                    <span class="badge badge-primary text-xs">{{ unreadNotificationCount() }} new</span>
+                  }
+                </div>
+                <button class="text-btn text-xs" (click)="markAllNotificationsRead()">Mark all as read</button>
+              </div>
+              <div class="popover-body">
+                @for (item of notifications(); track item.id) {
+                  <div class="notification-item" [class.unread]="item.unread">
+                    <div class="notif-icon-circle">
+                      <app-icon [name]="item.icon" [size]="15" color="var(--primary)"></app-icon>
+                    </div>
+                    <div class="notif-details">
+                      <div class="notif-title-row">
+                        <span class="notif-title">{{ item.title }}</span>
+                        @if (item.unread) {
+                          <span class="unread-dot"></span>
+                        }
+                      </div>
+                      <div class="notif-message">{{ item.message }}</div>
+                      <div class="notif-time">
+                        <app-icon name="clock" [size]="11" color="var(--text-muted)"></app-icon>
+                        <span>{{ item.time }}</span>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- User Profile Dropdown -->
+        <div class="user-profile-menu-container">
+          <button class="user-profile-trigger" (click)="toggleUserMenu()">
+            <div class="user-avatar-circle">
+              {{ authService.currentUser()?.firstName?.charAt(0) || 'U' }}{{ authService.currentUser()?.lastName?.charAt(0) || 'A' }}
+            </div>
+            <div class="user-info-text desktop-only">
+              <span class="user-name">{{ authService.currentUser()?.fullName || 'Legal Advocate' }}</span>
+              <span class="user-role-badge">{{ authService.userRole() }}</span>
+            </div>
+            <app-icon name="chevron-down" [size]="14" color="var(--text-muted)"></app-icon>
+          </button>
+
+          @if (isUserMenuOpen()) {
+            <div class="dropdown-popover user-dropdown-popover">
+              <div class="user-menu-header">
+                <div class="header-avatar-circle">
+                  {{ authService.currentUser()?.firstName?.charAt(0) || 'U' }}{{ authService.currentUser()?.lastName?.charAt(0) || 'A' }}
+                </div>
+                <div class="header-user-meta">
+                  <div class="user-menu-name">{{ authService.currentUser()?.fullName }}</div>
+                  <div class="user-menu-email">{{ authService.currentUser()?.email }}</div>
+                  <div class="header-badges">
+                    <span class="badge badge-primary text-xs">{{ authService.userRole() }}</span>
+                    @if (configService.isDemoMode()) {
+                      <span class="badge badge-warning text-xs">Demo Mode</span>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Navigation Links -->
+              <div class="menu-action-links">
+                <a routerLink="/settings" (click)="closeUserMenu()" class="menu-item-btn">
+                  <app-icon name="settings" [size]="15" color="var(--text-secondary)"></app-icon>
+                  <span>Chambers Settings</span>
+                </a>
+              </div>
+
+              <!-- CTO Demo Quick Switcher (Only active when in Demo Mode) -->
+              @if (configService.isDemoMode()) {
+                <div class="demo-role-section">
+                  <div class="demo-role-header">
+                    <span class="demo-role-title">SWITCH DEMO PERSONA</span>
+                    <span class="demo-role-subtitle">Simulate role-specific permissions</span>
+                  </div>
+                  <div class="demo-roles-list">
+                    @for (acc of demoAccounts; track acc.email) {
+                      <button
+                        type="button"
+                        class="demo-role-item"
+                        [class.active-role]="authService.currentUser()?.email === acc.email"
+                        (click)="switchDemoUser(acc.email)"
+                      >
+                        <div class="role-icon-box">
+                          <app-icon [name]="acc.icon || 'user'" [size]="14"></app-icon>
+                        </div>
+                        <div class="role-text-box">
+                          <span class="role-name">{{ acc.role }}</span>
+                          <span class="user-email-sub">{{ acc.name }}</span>
+                        </div>
+                        @if (authService.currentUser()?.email === acc.email) {
+                          <div class="active-check-icon">
+                            <app-icon name="check" [size]="14" color="var(--primary)"></app-icon>
+                          </div>
+                        }
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+
+              <div class="menu-divider"></div>
+
+              <button class="menu-item-btn text-danger logout-btn" (click)="authService.logout()">
+                <app-icon name="log-out" [size]="15" color="var(--danger)"></app-icon>
+                <span>Sign Out of Chamber</span>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Router Outlet Content Workspace -->
+    <main class="app-content-area">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
+
+<!-- Global Search Modal -->
+<app-modal
+  [isOpen]="isSearchModalOpen()"
+  title="LEXORA Global Search"
+  subtitle="Quickly search across cases, clients, hearings, and documents"
+  maxWidth="640px"
+  [showFooter]="false"
+  (close)="toggleSearchModal()"
+>
+  <div class="search-modal-content">
+    <div class="search-input-box">
+      <app-icon name="search" [size]="20" color="var(--primary)"></app-icon>
+      <input
+        type="text"
+        class="search-text-input"
+        placeholder="Type case number, client name, court, or citation..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+        (keydown.enter)="executeGlobalSearch()"
+        autofocus
+      />
+      <button class="btn btn-primary btn-sm" (click)="executeGlobalSearch()">Search</button>
+    </div>
+
+    <div class="search-quick-links">
+      <div class="quick-title">SUGGESTED FILTERS:</div>
+      <div class="quick-chips">
+        <button class="chip" (click)="searchQuery.set('Indus Retailers'); executeGlobalSearch()">Indus Retailers</button>
+        <button class="chip" (click)="searchQuery.set('Commercial Suit'); executeGlobalSearch()">Commercial Suits</button>
+        <button class="chip" (click)="searchQuery.set('High Court'); executeGlobalSearch()">High Court of Sindh</button>
+        <button class="chip" (click)="searchQuery.set('Urgent Injunction'); executeGlobalSearch()">Urgent Injunctions</button>
+      </div>
+    </div>
+  </div>
+</app-modal>
+
+<!-- Demo Reset Confirmation Modal -->
+<app-confirm-modal
+  [isOpen]="isResetModalOpen()"
+  title="Reset Demo Dataset?"
+  message="This will wipe all client, case, hearing, document, task, and invoice changes made during this presentation and restore the initial clean legal dataset. All demo login accounts will remain ready. Proceed?"
+  confirmText="Restore Initial Demo Data"
+  cancelText="Cancel"
+  [isDanger]="true"
+  [isLoading]="isResetting()"
+  (confirm)="confirmResetDemo()"
+  (cancel)="isResetModalOpen.set(false)"
+></app-confirm-modal>

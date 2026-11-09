@@ -1,0 +1,165 @@
+<div class="multi-select-container" [class.is-open]="isOpen()" [class.is-disabled]="disabled">
+  <!-- Trigger Control Box -->
+  <div class="select-trigger" (click)="toggleDropdown()">
+    <div class="chips-container">
+      @if (selectedOptions().length === 0) {
+        <span class="placeholder-text">{{ placeholder }}</span>
+      } @else {
+        @if (singleSelect) {
+          <div class="single-selection-label">
+            @if (showAvatars && selectedOptions()[0].avatarText) {
+              <span class="mini-avatar">{{ selectedOptions()[0].avatarText }}</span>
+            }
+            <span>{{ selectedOptions()[0][labelKey] || selectedOptions()[0].label }}</span>
+          </div>
+        } @else {
+          @for (item of selectedOptions(); track item[valueKey] || item.value) {
+            <span class="selected-chip">
+              @if (showAvatars && item.avatarText) {
+                <span class="chip-avatar">{{ item.avatarText }}</span>
+              }
+              <span class="chip-label">{{ item[labelKey] || item.label }}</span>
+              <button type="button" class="chip-remove-btn" (click)="removeChip(item, $event)">
+                <app-icon name="x" [size]="12"></app-icon>
+              </button>
+            </span>
+          }
+        }
+      }
+    </div>
+
+    <div class="trigger-actions">
+      @if (selectedValues().length > 0 && !disabled) {
+        <button type="button" class="clear-btn" (click)="clearAll($event)" title="Clear all">
+          <app-icon name="x" [size]="14"></app-icon>
+        </button>
+      }
+      <app-icon name="chevron-down" [size]="16" [customClass]="isOpen() ? 'rotate-180' : ''"></app-icon>
+    </div>
+  </div>
+
+  <!-- Floating Dropdown Panel -->
+  @if (isOpen()) {
+    <div class="dropdown-panel" (click)="$event.stopPropagation()">
+      <!-- Search Input & Fast Selection Controls -->
+      <div class="panel-header">
+        <div class="search-box">
+          <app-icon name="search" [size]="15" color="var(--text-muted)"></app-icon>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search options..."
+            [ngModel]="searchText()"
+            (ngModelChange)="searchText.set($event)"
+            autofocus
+          />
+          @if (searchText()) {
+            <button type="button" class="clear-search-btn" (click)="searchText.set('')">
+              <app-icon name="x" [size]="12"></app-icon>
+            </button>
+          }
+        </div>
+
+        @if (!singleSelect) {
+          <div class="panel-quick-actions">
+            <button type="button" class="quick-link-btn" (click)="selectAll()">Select All</button>
+            <span class="quick-sep">·</span>
+            <button type="button" class="quick-link-btn" (click)="clearAll()">Clear</button>
+            <span class="selected-count-badge">{{ selectedValues().length }} selected</span>
+          </div>
+        }
+      </div>
+
+      <!-- Options List -->
+      <div class="options-viewport">
+        @if (loading) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading choices...</span>
+          </div>
+        } @else if (filteredOptions().length === 0) {
+          <div class="empty-state">
+            <app-icon name="info" [size]="18" color="var(--text-muted)"></app-icon>
+            <span>No matching records found</span>
+          </div>
+        } @else {
+          <!-- Grouped Options -->
+          @for (groupEntry of groupedOptions().groups | keyvalue; track groupEntry.key) {
+            <div class="group-header">
+              <span class="group-title">{{ groupEntry.key }}</span>
+            </div>
+            @for (opt of groupEntry.value; track opt[valueKey] || opt.value) {
+              <div
+                class="option-item"
+                [class.selected]="isSelected(opt)"
+                [class.disabled]="opt.disabled"
+                (click)="toggleOption(opt, $event)"
+              >
+                @if (!singleSelect) {
+                  <div class="custom-checkbox" [class.checked]="isSelected(opt)">
+                    @if (isSelected(opt)) {
+                      <app-icon name="check" [size]="12" color="#FFFFFF"></app-icon>
+                    }
+                  </div>
+                }
+                @if (showAvatars && opt.avatarText) {
+                  <div class="option-avatar">{{ opt.avatarText }}</div>
+                }
+                <div class="option-info">
+                  <div class="option-title">{{ opt[labelKey] || opt.label }}</div>
+                  @if (opt.description) {
+                    <div class="option-desc">{{ opt.description }}</div>
+                  }
+                </div>
+                @if (opt.badge) {
+                  <span class="badge badge-neutral text-xs">{{ opt.badge }}</span>
+                }
+                @if (singleSelect && isSelected(opt)) {
+                  <div class="single-select-check">
+                    <app-icon name="check" [size]="14" color="var(--primary)"></app-icon>
+                  </div>
+                }
+              </div>
+            }
+          }
+
+          <!-- Ungrouped Options -->
+          @for (opt of groupedOptions().unGrouped; track opt[valueKey] || opt.value) {
+            <div
+              class="option-item"
+              [class.selected]="isSelected(opt)"
+              [class.disabled]="opt.disabled"
+              (click)="toggleOption(opt, $event)"
+            >
+              @if (!singleSelect) {
+                <div class="custom-checkbox" [class.checked]="isSelected(opt)">
+                  @if (isSelected(opt)) {
+                    <app-icon name="check" [size]="12" color="#FFFFFF"></app-icon>
+                  }
+                </div>
+              }
+              @if (showAvatars && opt.avatarText) {
+                <div class="option-avatar">{{ opt.avatarText }}</div>
+              }
+              <div class="option-info">
+                <div class="option-title">{{ opt[labelKey] || opt.label }}</div>
+                @if (opt.description) {
+                  <div class="option-desc">{{ opt.description }}</div>
+                }
+              </div>
+              @if (opt.badge) {
+                <span class="badge badge-neutral text-xs">{{ opt.badge }}</span>
+              }
+              @if (singleSelect && isSelected(opt)) {
+                <div class="single-select-check">
+                  <app-icon name="check" [size]="14" color="var(--primary)"></app-icon>
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+    </div>
+  }
+</div>
+

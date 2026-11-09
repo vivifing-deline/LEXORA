@@ -1,0 +1,308 @@
+<div class="client-detail-page">
+  <div class="top-nav-row">
+    <a routerLink="/clients" class="back-link">
+      <app-icon name="chevron-left" [size]="16"></app-icon>
+      <span>Back to Client Directory</span>
+    </a>
+    <div class="top-actions-group" *ngIf="client()">
+      <div class="client-tags">
+        <span class="badge" [ngClass]="client().type === 'corporate' ? 'badge-primary' : 'badge-neutral'">
+          {{ client().type }}
+        </span>
+        <span class="badge badge-success">{{ client().status }}</span>
+      </div>
+      <div class="action-buttons-wrap">
+        @if (authService.hasPermission('client.edit')) {
+          <button class="btn btn-secondary btn-sm" (click)="openEditModal()">
+            <app-icon name="edit" [size]="14"></app-icon>
+            <span>Edit Profile</span>
+          </button>
+        }
+        @if (authService.hasPermission('client.delete')) {
+          <button class="btn btn-danger btn-sm" (click)="openDeleteModal()">
+            <app-icon name="trash" [size]="14"></app-icon>
+            <span>Delete</span>
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="cards" [rows]="2"></app-loading-skeleton>
+  } @else if (client()) {
+    <div class="card client-header-card">
+      <div class="cl-avatar-box">
+        {{ client().name.charAt(0) }}
+      </div>
+      <div class="cl-header-info">
+        <div class="cl-ref font-mono">{{ client().clientReference }}</div>
+        <h1 class="cl-title">{{ client().name }}</h1>
+        @if (client().organization) {
+          <div class="cl-org">{{ client().organization }}</div>
+        }
+        <div class="cl-meta-row">
+          <span>{{ client().email || 'No email' }}</span>
+          <span>·</span>
+          <span>{{ client().phone || 'No phone' }}</span>
+          <span>·</span>
+          <span>{{ client().city }}, {{ client().jurisdiction }}</span>
+          @if (client().nationalId) {
+            <span>·</span>
+            <span class="font-mono">ID: {{ client().nationalId }}</span>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs Nav -->
+    <div class="tabs-nav-bar">
+      <button class="tab-btn" [class.active]="activeTab() === 'overview'" (click)="activeTab.set('overview')">
+        <app-icon name="user" [size]="15"></app-icon>
+        <span>Overview & Contacts</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab() === 'cases'" (click)="activeTab.set('cases')">
+        <app-icon name="briefcase" [size]="15"></app-icon>
+        <span>Legal Cases ({{ client().cases?.length || 0 }})</span>
+      </button>
+      <button class="tab-btn" [class.active]="activeTab() === 'invoices'" (click)="activeTab.set('invoices')">
+        <app-icon name="credit-card" [size]="15"></app-icon>
+        <span>Invoices & Accounts ({{ client().invoices?.length || 0 }})</span>
+      </button>
+    </div>
+
+    @if (activeTab() === 'overview') {
+      <div class="tab-pane">
+        <div class="two-col-grid">
+          <div class="card pane-card">
+            <div class="pane-header-row">
+              <h3 class="pane-title">Corporate Contacts</h3>
+              @if (authService.hasPermission('client.edit')) {
+                <button class="btn btn-secondary btn-xs" (click)="openContactModal()">
+                  <app-icon name="plus" [size]="12"></app-icon>
+                  <span>Add Contact</span>
+                </button>
+              }
+            </div>
+            @if (client().contacts?.length === 0) {
+              <p class="text-xs text-muted">No specific individual contacts registered yet.</p>
+            } @else {
+              <div class="contacts-list">
+                @for (c of client().contacts; track c.id) {
+                  <div class="contact-card-sub">
+                    <div class="contact-header-line">
+                      <div class="contact-name-main">{{ c.name }}</div>
+                      @if (authService.hasPermission('client.edit')) {
+                        <button class="btn-icon-sub text-danger" (click)="openDeleteContactModal(c)" title="Remove contact">
+                          <app-icon name="trash" [size]="12"></app-icon>
+                        </button>
+                      }
+                    </div>
+                    <div class="contact-role-sub">{{ c.designation || 'Representative' }}</div>
+                    <div class="contact-channel-sub text-xs text-muted">{{ c.email }} · {{ c.phone }}</div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="card pane-card">
+            <h3 class="pane-title">Supervision & Notes</h3>
+            <div class="info-group">
+              <span class="info-label">Supervising Advocate:</span>
+              <span class="info-value font-medium">{{ client().assignedAdvocate?.fullName || 'Senior Advocate' }}</span>
+            </div>
+            <div class="info-group">
+              <span class="info-label">Client Engagement:</span>
+              <span class="info-value">{{ client().clientType }}</span>
+            </div>
+            <div class="divider"></div>
+            <h4 class="text-xs text-muted font-bold">INTERNAL CRM NOTES:</h4>
+            <p class="text-sm text-secondary">{{ client().notes || 'No CRM notes recorded.' }}</p>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (activeTab() === 'cases') {
+      <div class="tab-pane">
+        <div class="cases-list-panel">
+          @for (c of client().cases; track c.id) {
+            <div class="card case-mini-card" [routerLink]="['/cases', c.id]">
+              <div>
+                <span class="font-mono text-xs text-primary font-bold">{{ c.internalReference }}</span>
+                <div class="mini-case-title">{{ c.title }}</div>
+                <div class="mini-court-sub text-xs text-muted">{{ c.court?.name || c.jurisdiction }} · {{ c.caseType }}</div>
+              </div>
+              <div class="mini-case-right">
+                <span class="stage-tag">{{ c.currentStage }}</span>
+                <span class="badge badge-success">{{ c.status }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (activeTab() === 'invoices') {
+      <div class="tab-pane">
+        <div class="invoices-list-panel">
+          @for (inv of client().invoices; track inv.id) {
+            <div class="card invoice-mini-card">
+              <div>
+                <span class="font-mono text-xs font-bold">{{ inv.invoiceNumber }}</span>
+                <div class="mini-inv-title">Total: {{ formatCurrency(inv.totalAmount) }}</div>
+                <div class="text-xs text-muted">Paid: {{ formatCurrency(inv.amountPaid) }} · Balance: {{ formatCurrency(inv.balanceDue) }}</div>
+              </div>
+              <span class="badge" [ngClass]="inv.status === 'paid' ? 'badge-success' : 'badge-warning'">
+                {{ inv.status }}
+              </span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<!-- Edit Client Modal -->
+<app-modal
+  [isOpen]="isEditModalOpen()"
+  title="Edit Client Profile"
+  subtitle="Update registration profile and CRM details"
+  maxWidth="640px"
+  (close)="closeEditModal()"
+>
+  <form [formGroup]="editForm" (ngSubmit)="submitEdit()">
+    <div class="form-row">
+      <div class="form-group flex-2">
+        <label class="form-label">Client Name / Full Legal Title *</label>
+        <input type="text" formControlName="name" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Client Type *</label>
+        <select formControlName="type" class="form-control">
+          <option value="individual">Individual</option>
+          <option value="corporate">Corporate</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Organization / Parent Entity</label>
+        <input type="text" formControlName="organization" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">National ID / NTN / Reg No.</label>
+        <input type="text" formControlName="nationalId" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Primary Email</label>
+        <input type="email" formControlName="email" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Phone Number</label>
+        <input type="text" formControlName="phone" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">City</label>
+        <input type="text" formControlName="city" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Jurisdiction</label>
+        <input type="text" formControlName="jurisdiction" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Engagement Category</label>
+        <select formControlName="clientType" class="form-control">
+          <option value="Standard">Standard</option>
+          <option value="Retainer">Retainer</option>
+          <option value="Pro Bono">Pro Bono</option>
+          <option value="VIP">VIP</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Office Address</label>
+      <input type="text" formControlName="address" class="form-control" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">CRM Notes & Legal Background</label>
+      <textarea formControlName="notes" rows="3" class="form-control"></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeEditModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitEdit()">Save Changes</button>
+  </div>
+</app-modal>
+
+<!-- Add Contact Modal -->
+<app-modal
+  [isOpen]="isContactModalOpen()"
+  title="Add Corporate Contact"
+  subtitle="Register a representative or legal point of contact"
+  maxWidth="500px"
+  (close)="closeContactModal()"
+>
+  <form [formGroup]="contactForm" (ngSubmit)="submitContact()">
+    <div class="form-group">
+      <label class="form-label">Contact Full Name *</label>
+      <input type="text" formControlName="name" class="form-control" placeholder="e.g. John Doe" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Designation / Role</label>
+      <input type="text" formControlName="designation" class="form-control" placeholder="e.g. Head of Legal, CFO, Director" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Email</label>
+        <input type="email" formControlName="email" class="form-control" placeholder="email@company.com" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Phone</label>
+        <input type="text" formControlName="phone" class="form-control" placeholder="+92 300 1234567" />
+      </div>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeContactModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitContact()">Add Contact</button>
+  </div>
+</app-modal>
+
+<!-- Confirm Delete Client Modal -->
+<app-confirm-modal
+  [isOpen]="isDeleteModalOpen()"
+  title="Archive / Delete Client"
+  message="Are you sure you want to delete this client? This will remove or archive the client from active directories."
+  confirmText="Delete Client"
+  [isDanger]="true"
+  [isLoading]="isDeleting()"
+  (confirm)="confirmDeleteClient()"
+  (cancel)="closeDeleteModal()"
+></app-confirm-modal>
+
+<!-- Confirm Delete Contact Modal -->
+<app-confirm-modal
+  [isOpen]="isDeleteContactModalOpen()"
+  title="Remove Contact"
+  [message]="'Are you sure you want to remove ' + (contactToDelete()?.name || 'this contact') + '?'"
+  confirmText="Remove Contact"
+  [isDanger]="true"
+  (confirm)="confirmDeleteContact()"
+  (cancel)="closeDeleteContactModal()"
+></app-confirm-modal>

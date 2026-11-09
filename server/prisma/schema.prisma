@@ -1,0 +1,794 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  legalName   String?
+  registrationNo String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  country     String   @default("Pakistan")
+  currency    String   @default("PKR")
+  currencySymbol String @default("Rs.")
+  logoUrl     String?
+  primaryColor String  @default("#4F46E5")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  clients     Client[]
+  cases       Case[]
+  courts      Court[]
+  documents   Document[]
+  invoices    Invoice[]
+  expenses    Expense[]
+  tasks       Task[]
+  auditLogs   AuditLog[]
+  settings    WorkspaceSetting[]
+}
+
+model WorkspaceSetting {
+  id          String   @id @default(uuid())
+  workspaceId String
+  key         String
+  value       String   @db.Text
+  group       String   @default("general") // general, billing, litigation, notification
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+}
+
+model User {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  email           String   @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  designation     String?  // Senior Advocate, Associate, Junior Advocate, Clerk, Accountant, Client
+  phone           String?
+  avatarUrl       String?
+  departmentId    String?
+  isActive        Boolean  @default(true)
+  themePreference String   @default("light") // light, dark, system
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  department      Department?      @relation(fields: [departmentId], references: [id])
+  userRoles       UserRole[]
+  userPermissions UserPermission[]
+  caseAssignments CaseAssignment[]
+  taskAssignments TaskAssignment[]
+  createdTasks    Task[]           @relation("TaskCreator")
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  caseDiaries     CaseDiary[]
+  uploadedDocs    Document[]       @relation("DocumentUploader")
+  docAccesses     DocumentAccess[]
+  createdInvoices Invoice[]        @relation("InvoiceCreator")
+  recordedPayments Payment[]       @relation("PaymentRecorder")
+  recordedExpenses Expense[]       @relation("ExpenseRecorder")
+  assignedHearings Hearing[]       @relation("HearingAdvocate")
+  createdClients  Client[]         @relation("ClientAdvocate")
+  clientProfile   Client?          @relation("ClientPortalUser")
+
+  @@index([workspaceId])
+  @@index([email])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // Firm Admin, Senior Advocate, Associate Advocate, Junior Advocate, Clerk, Accountant, Client
+  displayName String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles        UserRole[]
+  rolePermissions  RolePermission[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  code        String   @unique // case.view, case.create, etc.
+  module      String   // cases, clients, documents, hearings, finance, users, etc.
+  action      String   // view, create, edit, delete, assign, etc.
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+
+  @@index([module])
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model UserPermission {
+  id           String   @id @default(uuid())
+  userId       String
+  permissionId String
+  isGranted    Boolean  @default(true) // can explicitly grant or revoke
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+}
+
+model PracticeArea {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cases Case[]
+}
+
+model Client {
+  id              String   @id @default(uuid())
+  workspaceId     String
+  clientReference String   @unique // e.g. CLT-2026-001
+  type            String   @default("individual") // individual, corporate
+  name            String
+  organization    String?
+  email           String?
+  phone           String?
+  address         String?  @db.Text
+  city            String?
+  country         String   @default("Pakistan")
+  jurisdiction    String?
+  nationalId      String?  // CNIC or Passport
+  clientType      String   @default("retained") // retained, walk_in, legal_aid, pro_bono
+  status          String   @default("active")   // active, inactive, conflict, archived
+  notes           String?  @db.Text
+  assignedAdvocateId String?
+  portalUserId    String?  @unique
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assignedAdvocate User?            @relation("ClientAdvocate", fields: [assignedAdvocateId], references: [id])
+  portalUser       User?            @relation("ClientPortalUser", fields: [portalUserId], references: [id])
+  contacts         ClientContact[]
+  cases            Case[]
+  invoices         Invoice[]
+  documents        Document[]
+  tasks            Task[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([clientReference])
+}
+
+model ClientContact {
+  id          String   @id @default(uuid())
+  clientId    String
+  name        String
+  designation String?
+  email       String?
+  phone       String?
+  isPrimary   Boolean  @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model Case {
+  id                  String   @id @default(uuid())
+  workspaceId         String
+  clientId            String
+  practiceAreaId      String
+  courtId             String?
+  internalReference   String   @unique // e.g. LEX-2026-0042
+  courtCaseNumber     String?  // e.g. W.P. 1234/2026
+  title               String
+  caseType            String   // Civil Suit, Writ Petition, Bail Application, etc.
+  jurisdiction        String?
+  judgeName           String?
+  plaintiffPetitioner String
+  defendantRespondent String
+  opposingCounsel     String?
+  opposingParties     String?  @db.Text
+  filingDate          DateTime?
+  registrationDate    DateTime @default(now())
+  currentStage        String   @default("Consultation")
+  status              String   @default("active") // active, pending, stayed, decided, closed, appealed
+  priority            String   @default("medium") // low, medium, high, urgent
+  description         String?  @db.Text
+  financialAgreement  String?  // Fixed, Retainer, Hourly, Contingency, Stage-based
+  agreedFee           Float?   @default(0)
+  importantNotes      String?  @db.Text
+  closedAt            DateTime?
+  closureReason       String?  @db.Text
+  isArchived          Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  client          Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  practiceArea    PracticeArea      @relation(fields: [practiceAreaId], references: [id])
+  court           Court?            @relation(fields: [courtId], references: [id])
+  parties         CaseParty[]
+  assignments     CaseAssignment[]
+  stages          CaseStage[]
+  history         CaseHistory[]
+  hearings        Hearing[]
+  proceedings     CaseProceeding[]
+  diaries         CaseDiary[]
+  documents       Document[]
+  tasks           Task[]
+  invoices        Invoice[]
+  expenses        Expense[]
+  calendarEvents  CalendarEvent[]
+  legalReferences CaseLegalReference[]
+
+  @@index([workspaceId])
+  @@index([clientId])
+  @@index([practiceAreaId])
+  @@index([status])
+  @@index([currentStage])
+}
+
+model CaseParty {
+  id          String   @id @default(uuid())
+  caseId      String
+  partyType   String   // petitioner, respondent, co-petitioner, intervenor, witness, third_party
+  name        String
+  contactInfo String?
+  advocate    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model CaseAssignment {
+  id        String   @id @default(uuid())
+  caseId    String
+  userId    String
+  roleInCase String  // Lead Advocate, Associate, Supporting, Legal Clerk
+  assignedAt DateTime @default(now())
+  notes     String?
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+}
+
+model CaseStage {
+  id          String    @id @default(uuid())
+  caseId      String
+  stageName   String    // Consultation, Filing, Evidence, Arguments, Judgment, Execution, etc.
+  status      String    @default("pending") // pending, in_progress, completed, skipped
+  startedAt   DateTime?
+  completedAt DateTime?
+  remarks     String?
+  orderIndex  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model CaseHistory {
+  id          String   @id @default(uuid())
+  caseId      String
+  action      String   // Stage Changed, Advocate Assigned, Status Updated, Hearing Added
+  description String   @db.Text
+  performedBy String
+  createdAt   DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model Court {
+  id           String   @id @default(uuid())
+  workspaceId  String
+  name         String   // e.g. Supreme Court of Pakistan, High Court of Sindh
+  type         String   // Supreme Court, High Court, District Court, Sessions Court, Banking Court, Tribunal
+  city         String
+  jurisdiction String?
+  address      String?
+  roomNumber   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  cases     Case[]
+  hearings  Hearing[]
+  judges    Judge[]
+
+  @@index([workspaceId])
+}
+
+model Judge {
+  id           String   @id @default(uuid())
+  courtId      String
+  name         String
+  designation  String?  // Chief Justice, Justice, District & Sessions Judge
+  courtroom    String?
+  email        String?
+  phone        String?
+  notes        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  court    Court     @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  hearings Hearing[]
+
+  @@index([courtId])
+}
+
+model Hearing {
+  id                 String    @id @default(uuid())
+  caseId             String
+  courtId            String?
+  judgeId            String?
+  hearingDate        DateTime
+  hearingTime        String?   // e.g. "09:30 AM"
+  courtroom          String?
+  assignedAdvocateId String?
+  purpose            String    // Arguments, Framing of Issues, Evidence, Order, Final Arguments
+  status             String    @default("scheduled") // scheduled, completed, adjourned, cancelled, awaiting_outcome
+  proceedingsSummary String?   @db.Text
+  adjournmentReason  String?   @db.Text
+  nextHearingDate    DateTime?
+  nextHearingPurpose String?
+  bench              String?
+  orderPassed        String?   @db.Text
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  case             Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  court            Court?           @relation(fields: [courtId], references: [id])
+  judge            Judge?           @relation(fields: [judgeId], references: [id])
+  assignedAdvocate User?            @relation("HearingAdvocate", fields: [assignedAdvocateId], references: [id])
+  proceedings      CaseProceeding[]
+  diaryEntries     CaseDiary[]
+
+  @@index([caseId])
+  @@index([hearingDate])
+  @@index([status])
+}
+
+model CaseProceeding {
+  id          String   @id @default(uuid())
+  caseId      String
+  hearingId   String?
+  date        DateTime @default(now())
+  summary     String   @db.Text
+  orders      String?  @db.Text
+  nextAction  String?  @db.Text
+  recordedBy  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  case    Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  hearing Hearing? @relation(fields: [hearingId], references: [id])
+
+  @@index([caseId])
+}
+
+model CaseDiary {
+  id                String   @id @default(uuid())
+  caseId            String
+  hearingId         String?
+  advocateId        String
+  entryDate         DateTime @default(now())
+  proceedings       String   @db.Text
+  courtObservations String?  @db.Text
+  argumentsMade     String?  @db.Text
+  evidencePresented String?  @db.Text
+  ordersPassed      String?  @db.Text
+  nextSteps         String?  @db.Text
+  privateNotes      String?  @db.Text
+  isConfidential    Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  case     Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  hearing  Hearing? @relation(fields: [hearingId], references: [id])
+  advocate User     @relation(fields: [advocateId], references: [id])
+
+  @@index([caseId])
+  @@index([advocateId])
+}
+
+model Document {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  caseId         String?
+  clientId       String?
+  title          String
+  originalName   String
+  storedFilename String
+  filePath       String
+  fileSize       Int
+  mimeType       String
+  extension      String
+  category       String   // Plaint, Written Statement, Petition, Affidavit, Vakalatnama, Evidence, Court Order, Judgment, etc.
+  tags           String?  // Comma-separated or JSON
+  description    String?
+  version        Int      @default(1)
+  isArchived     Boolean  @default(false)
+  isConfidential Boolean  @default(false)
+  uploadedById   String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  case        Case?             @relation(fields: [caseId], references: [id])
+  client      Client?           @relation(fields: [clientId], references: [id])
+  uploadedBy  User              @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  versions    DocumentVersion[]
+  accessList  DocumentAccess[]
+
+  @@index([workspaceId])
+  @@index([caseId])
+  @@index([clientId])
+  @@index([category])
+}
+
+model DocumentVersion {
+  id             String   @id @default(uuid())
+  documentId     String
+  versionNumber  Int
+  storedFilename String
+  filePath       String
+  fileSize       Int
+  changesSummary String?  @db.Text
+  uploadedBy     String
+  createdAt      DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+model DocumentAccess {
+  id          String   @id @default(uuid())
+  documentId  String
+  userId      String
+  canView     Boolean  @default(true)
+  canDownload Boolean  @default(true)
+  canDelete   Boolean  @default(false)
+  grantedAt   DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+}
+
+model LegalReference {
+  id           String   @id @default(uuid())
+  title        String
+  jurisdiction String   @default("Pakistan")
+  category     String   // Legislation, Act, Section, CPC Order, Case Law, Precedent, Internal Research
+  actName      String?
+  sectionRule  String?
+  citation     String?  // e.g. 2024 SCMR 1450
+  court        String?
+  year         Int?
+  summary      String   @db.Text
+  source       String?
+  tags         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  cases CaseLegalReference[]
+
+  @@index([category])
+  @@index([actName])
+}
+
+model CaseLegalReference {
+  id               String   @id @default(uuid())
+  caseId           String
+  legalReferenceId String
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  case           Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  legalReference LegalReference @relation(fields: [legalReferenceId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, legalReferenceId])
+}
+
+model Task {
+  id              String    @id @default(uuid())
+  workspaceId     String
+  caseId          String?
+  clientId        String?
+  title           String
+  description     String?   @db.Text
+  taskType        String    @default("General") // Legal Research, Drafting, Filing, Client Meeting, Court Prep, Document Review, etc.
+  priority        String    @default("medium")  // low, medium, high, urgent
+  status          String    @default("todo")    // todo, in_progress, review, completed, cancelled
+  startDate       DateTime?
+  dueDate         DateTime?
+  completedAt     DateTime?
+  completionNotes String?   @db.Text
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  case        Case?            @relation(fields: [caseId], references: [id])
+  client      Client?          @relation(fields: [clientId], references: [id])
+  createdBy   User             @relation("TaskCreator", fields: [createdById], references: [id])
+  assignments TaskAssignment[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([priority])
+}
+
+model TaskAssignment {
+  id         String   @id @default(uuid())
+  taskId     String
+  userId     String
+  assignedAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+}
+
+model CalendarEvent {
+  id          String   @id @default(uuid())
+  caseId      String?
+  title       String
+  eventType   String   // hearing, meeting, filing_deadline, internal_deadline, consultation, other
+  startTime   DateTime
+  endTime     DateTime
+  allDay      Boolean  @default(false)
+  location    String?
+  description String?  @db.Text
+  colorCode   String?  // Hex color e.g. #4F46E5
+  reminderMin Int?     @default(60) // reminder in minutes before event
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  case Case? @relation(fields: [caseId], references: [id])
+
+  @@index([startTime])
+}
+
+model Deadline {
+  id              String    @id @default(uuid())
+  caseId          String
+  title           String
+  dueDate         DateTime
+  statutoryDays   Int?
+  legalProvision  String?
+  notes           String?
+  isVerified      Boolean   @default(false)
+  status          String    @default("pending") // pending, met, overdue, waived
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([dueDate])
+}
+
+model LimitationRule {
+  id             String   @id @default(uuid())
+  actName        String
+  sectionArticle String
+  caseType       String
+  standardDays   Int
+  description    String?
+  jurisdiction   String   @default("Pakistan")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Invoice {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  clientId      String
+  caseId        String?
+  invoiceNumber String    @unique // e.g. INV-2026-0001
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime
+  feeType       String    @default("Fixed") // Fixed, Hourly, Retainer, Consultation, Stage-based, Custom
+  subtotal      Float     @default(0)
+  taxRate       Float     @default(0)
+  taxAmount     Float     @default(0)
+  discount      Float     @default(0)
+  totalAmount   Float     @default(0)
+  amountPaid    Float     @default(0)
+  balanceDue    Float     @default(0)
+  status        String    @default("draft") // draft, sent, paid, partial, overdue, cancelled
+  notes         String?   @db.Text
+  paymentTerms  String?   @db.Text
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  client    Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  case      Case?         @relation(fields: [caseId], references: [id])
+  createdBy User          @relation("InvoiceCreator", fields: [createdById], references: [id])
+  items     InvoiceItem[]
+  payments  Payment[]
+
+  @@index([workspaceId])
+  @@index([clientId])
+  @@index([status])
+  @@index([invoiceNumber])
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  description String   @db.Text
+  quantity    Float    @default(1)
+  unitPrice   Float    @default(0)
+  amount      Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  invoiceId         String
+  paymentNumber     String   @unique // e.g. REC-2026-0001
+  paymentDate       DateTime @default(now())
+  amount            Float
+  paymentMethod     String   // Bank Transfer, Cheque, Cash, Online
+  referenceNo       String?  // Cheque # or Txn ID
+  notes             String?  @db.Text
+  receiptUrl        String?
+  recordedById      String
+  isReversal        Boolean  @default(false)
+  reversalReason    String?  @db.Text
+  reversedPaymentId String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  recordedBy User    @relation("PaymentRecorder", fields: [recordedById], references: [id])
+
+  @@index([invoiceId])
+}
+
+model Expense {
+  id            String   @id @default(uuid())
+  workspaceId   String
+  caseId        String?
+  category      String   // Court Fee, Filing Fee, Travel, Documentation, Photocopying, Other
+  title         String
+  amount        Float
+  expenseDate   DateTime @default(now())
+  paymentMethod String   @default("Cash")
+  receiptNumber String?
+  isBillable    Boolean  @default(true)
+  notes         String?  @db.Text
+  recordedById  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  case       Case?     @relation(fields: [caseId], references: [id])
+  recordedBy User      @relation("ExpenseRecorder", fields: [recordedById], references: [id])
+
+  @@index([workspaceId])
+  @@index([caseId])
+  @@index([category])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info") // hearing, deadline, task, billing, document, system
+  linkUrl   String?
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  workspaceId String
+  userId      String?
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, VIEW, DOWNLOAD, PERMISSION_CHANGE
+  module      String   // Cases, Clients, Documents, Hearings, Billing, Tasks, Users, Settings
+  entityId    String?
+  entityName  String?
+  oldValues   String?  @db.Text // JSON string
+  newValues   String?  @db.Text // JSON string
+  ipAddress   String?
+  userAgent   String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
+  @@index([module])
+  @@index([action])
+  @@index([createdAt])
+}
+

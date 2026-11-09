@@ -1,0 +1,852 @@
+<div class="case-detail-page">
+  <!-- Back link & Top Bar -->
+  <div class="top-nav-row">
+    <a routerLink="/cases" class="back-link">
+      <app-icon name="chevron-left" [size]="16"></app-icon>
+      <span>Back to Case Registry</span>
+    </a>
+
+    <div class="top-nav-actions" *ngIf="caseData()">
+      <div class="case-status-tags">
+        <span class="badge" [ngClass]="caseData().priority === 'urgent' ? 'badge-danger' : caseData().priority === 'high' ? 'badge-warning' : 'badge-neutral'">
+          {{ caseData().priority }} Priority
+        </span>
+        <span class="badge badge-primary">{{ caseData().practiceArea?.name }}</span>
+        <span class="badge" [ngClass]="caseData().status === 'closed' ? 'badge-neutral' : 'badge-success'">
+          {{ caseData().status }}
+        </span>
+      </div>
+
+      <div class="header-btns-group">
+        @if (caseData().status === 'closed') {
+          @if (authService.hasPermission('case.edit')) {
+            <button class="btn btn-secondary btn-sm" (click)="reopenCase()">
+              <app-icon name="rotate-ccw" [size]="14"></app-icon>
+              <span>Reopen Case</span>
+            </button>
+          }
+        } @else {
+          @if (authService.hasPermission('case.close')) {
+            <button class="btn btn-secondary btn-sm" (click)="openCloseModal()">
+              <app-icon name="check-circle" [size]="14"></app-icon>
+              <span>Close Case</span>
+            </button>
+          }
+        }
+        @if (authService.hasPermission('case.delete')) {
+          <button class="btn btn-danger btn-sm" (click)="openDeleteModal()">
+            <app-icon name="trash" [size]="14"></app-icon>
+            <span>Delete</span>
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="cards" [rows]="2"></app-loading-skeleton>
+    <div class="mt-4">
+      <app-loading-skeleton type="table" [rows]="6"></app-loading-skeleton>
+    </div>
+  } @else if (caseData()) {
+    <!-- Case Dossier Header -->
+    <div class="card case-dossier-header">
+      <div class="dossier-left">
+        <div class="reference-row">
+          <span class="dossier-ref font-mono">{{ caseData().internalReference }}</span>
+          @if (caseData().courtCaseNumber) {
+            <span class="court-suit-tag">{{ caseData().courtCaseNumber }}</span>
+          }
+          <span class="case-type-tag">{{ caseData().caseType }}</span>
+        </div>
+        <h1 class="case-headline">{{ caseData().title }}</h1>
+        <div class="case-sub-meta">
+          <span>Client: <strong>{{ caseData().client?.name }}</strong></span>
+          <span>·</span>
+          <span>Court: <strong>{{ caseData().court?.name || caseData().jurisdiction || 'High Court of Sindh' }}</strong></span>
+          <span>·</span>
+          <span>Filing Date: {{ caseData().filingDate ? (caseData().filingDate | date:'mediumDate') : 'Pending Filing' }}</span>
+        </div>
+      </div>
+
+      <div class="dossier-right">
+        <div class="fee-badge-box">
+          <span class="fee-label">Agreed Professional Fee</span>
+          <span class="fee-amount">{{ formatCurrency(caseData().agreedFee) }}</span>
+          <span class="fee-term">{{ caseData().financialAgreement || 'Fixed Agreement' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interactive Litigation Stage Pipeline -->
+    <div class="card stage-pipeline-card">
+      <div class="pipeline-header">
+        <span class="pipeline-title">LITIGATION WORKFLOW STAGES</span>
+        <span class="current-stage-indicator">Current Stage: <strong>{{ caseData().currentStage }}</strong></span>
+      </div>
+
+      <div class="pipeline-steps">
+        @for (s of allStages; track s) {
+          <button
+            class="stage-node"
+            [class.active]="caseData().currentStage === s"
+            [class.completed]="allStages.indexOf(caseData().currentStage) > allStages.indexOf(s)"
+            (click)="updateStage(s)"
+            title="Click to transition case to this stage"
+          >
+            <div class="node-indicator">
+              @if (allStages.indexOf(caseData().currentStage) > allStages.indexOf(s)) {
+                <app-icon name="check" [size]="12" color="#FFFFFF"></app-icon>
+              } @else {
+                <span>{{ allStages.indexOf(s) + 1 }}</span>
+              }
+            </div>
+            <span class="node-label">{{ s }}</span>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Tabbed Workspace -->
+    <div class="case-tabs-container">
+      <div class="tabs-nav-bar">
+        <button class="tab-btn" [class.active]="activeTab() === 'overview'" (click)="activeTab.set('overview')">
+          <app-icon name="file-text" [size]="15"></app-icon>
+          <span>Overview & Parties</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab() === 'hearings'" (click)="activeTab.set('hearings')">
+          <app-icon name="gavel" [size]="15"></app-icon>
+          <span>Hearings & Cause List ({{ caseData().hearings?.length || 0 }})</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab() === 'documents'" (click)="activeTab.set('documents')">
+          <app-icon name="folder" [size]="15"></app-icon>
+          <span>Pleadings & Documents ({{ caseData().documents?.length || 0 }})</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab() === 'tasks'" (click)="activeTab.set('tasks')">
+          <app-icon name="check-square" [size]="15"></app-icon>
+          <span>Tasks ({{ caseData().tasks?.length || 0 }})</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab() === 'finance'" (click)="activeTab.set('finance')">
+          <app-icon name="credit-card" [size]="15"></app-icon>
+          <span>Billing & Expenses</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab() === 'diary'" (click)="activeTab.set('diary')">
+          <app-icon name="book-open" [size]="15"></app-icon>
+          <span>Advocate Diary ({{ caseData().diaries?.length || 0 }})</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab() === 'history'" (click)="activeTab.set('history')">
+          <app-icon name="clock" [size]="15"></app-icon>
+          <span>Timeline History</span>
+        </button>
+      </div>
+
+      <!-- Tab Content 1: Overview -->
+      @if (activeTab() === 'overview') {
+        <div class="tab-content-panel">
+          <div class="two-col-grid">
+            <!-- Left: Parties & Legal Team -->
+            <div class="card detail-section-card">
+              <h3 class="section-heading">Parties in Dispute</h3>
+              <div class="info-group">
+                <span class="info-label">Plaintiff / Petitioner:</span>
+                <span class="info-value font-medium">{{ caseData().plaintiffPetitioner }}</span>
+              </div>
+              <div class="info-group">
+                <span class="info-label">Defendant / Respondent:</span>
+                <span class="info-value font-medium">{{ caseData().defendantRespondent }}</span>
+              </div>
+              @if (caseData().opposingCounsel) {
+                <div class="info-group">
+                  <span class="info-label">Opposing Counsel:</span>
+                  <span class="info-value">{{ caseData().opposingCounsel }}</span>
+                </div>
+              }
+              @if (caseData().opposingParties) {
+                <div class="info-group">
+                  <span class="info-label">Other Parties / Witnesses:</span>
+                  <span class="info-value">{{ caseData().opposingParties }}</span>
+                </div>
+              }
+
+              <div class="divider"></div>
+
+              <div class="pane-header-row">
+                <h3 class="section-heading mb-0">Adverse & Co-Parties</h3>
+                @if (authService.hasPermission('case.edit')) {
+                  <button class="btn btn-secondary btn-xs" (click)="openPartyModal()">
+                    <app-icon name="plus" [size]="12"></app-icon>
+                    <span>Add Party</span>
+                  </button>
+                }
+              </div>
+
+              @if (caseData().parties?.length === 0) {
+                <p class="text-xs text-muted">No additional parties registered.</p>
+              } @else {
+                <div class="contacts-list mt-2">
+                  @for (p of caseData().parties; track p.id) {
+                    <div class="contact-card-sub">
+                      <div class="contact-header-line">
+                        <div class="contact-name-main">{{ p.name }} <span class="badge badge-neutral text-xs">{{ p.role }}</span></div>
+                        @if (authService.hasPermission('case.edit')) {
+                          <button class="btn-icon-sub text-danger" (click)="openDeletePartyModal(p)" title="Remove party">
+                            <app-icon name="trash" [size]="12"></app-icon>
+                          </button>
+                        }
+                      </div>
+                      <div class="contact-role-sub text-xs">Advocate: {{ p.advocate || 'None listed' }}</div>
+                      @if (p.contactInfo) {
+                        <div class="contact-channel-sub text-xs text-muted">{{ p.contactInfo }}</div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="divider"></div>
+
+              <h3 class="section-heading">Assigned Legal Counsel</h3>
+              <div class="assigned-advocates-list">
+                @for (assign of caseData().assignments; track assign.id) {
+                  <div class="advocate-row">
+                    <div class="adv-avatar-circle">{{ assign.user.firstName.charAt(0) }}</div>
+                    <div>
+                      <div class="adv-full-name">{{ assign.user.fullName }}</div>
+                      <div class="adv-role-label">{{ assign.roleInCase }} · {{ assign.user.email }}</div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Right: Claims, Notes & Jurisdiction -->
+            <div class="card detail-section-card">
+              <h3 class="section-heading">Dispute Summary & Claims</h3>
+              <p class="case-desc-text">{{ caseData().description || 'No detailed dispute brief added yet.' }}</p>
+
+              @if (caseData().importantNotes) {
+                <div class="notes-box">
+                  <div class="notes-header">
+                    <app-icon name="alert-triangle" [size]="14" color="var(--warning)"></app-icon>
+                    <span>Important Strategic Notes</span>
+                  </div>
+                  <p class="notes-content">{{ caseData().importantNotes }}</p>
+                </div>
+              }
+
+              <div class="divider"></div>
+
+              <h3 class="section-heading">Court & Jurisdiction</h3>
+              <div class="info-group">
+                <span class="info-label">Court:</span>
+                <span class="info-value">{{ caseData().court?.name || 'High Court of Sindh' }}</span>
+              </div>
+              <div class="info-group">
+                <span class="info-label">Bench / Judge:</span>
+                <span class="info-value">{{ caseData().judgeName || 'Single Bench' }}</span>
+              </div>
+              <div class="info-group">
+                <span class="info-label">Jurisdiction:</span>
+                <span class="info-value">{{ caseData().jurisdiction || 'Provincial Civil/Commercial Jurisdiction' }}</span>
+              </div>
+              <div class="divider"></div>
+
+              <div class="pane-header-row">
+                <h3 class="section-heading mb-0">Legal Precedents & Citations</h3>
+                @if (authService.hasPermission('case.edit')) {
+                  <button class="btn btn-secondary btn-xs" (click)="openReferenceModal()">
+                    <app-icon name="plus" [size]="12"></app-icon>
+                    <span>Link Precedent</span>
+                  </button>
+                }
+              </div>
+
+              @if (caseData().references?.length === 0) {
+                <p class="text-xs text-muted">No statutory references or case laws linked yet.</p>
+              } @else {
+                <div class="references-list mt-2">
+                  @for (r of caseData().references; track r.id) {
+                    <div class="contact-card-sub">
+                      <div class="contact-header-line">
+                        <div class="font-bold text-xs text-primary">{{ r.legalReference?.citation }}</div>
+                        @if (authService.hasPermission('case.edit')) {
+                          <button class="btn-icon-sub text-danger" (click)="unlinkReference(r.legalReferenceId)" title="Unlink reference">
+                            <app-icon name="trash" [size]="12"></app-icon>
+                          </button>
+                        }
+                      </div>
+                      <div class="text-xs font-medium">{{ r.legalReference?.title }}</div>
+                      <div class="text-xs text-muted">{{ r.legalReference?.court }} · {{ r.legalReference?.year }}</div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Tab Content 2: Hearings & Cause List -->
+      @if (activeTab() === 'hearings') {
+        <div class="tab-content-panel">
+          <div class="tab-actions-header">
+            <div>
+              <h3 class="section-heading">Court Hearings & Proceeding History</h3>
+              <p class="text-xs text-muted">All scheduled, adjourned, and concluded court appearances.</p>
+            </div>
+            @if (authService.hasPermission('hearing.create')) {
+              <button class="btn btn-primary btn-sm" (click)="openHearingModal()">
+                <app-icon name="plus" [size]="14"></app-icon>
+                <span>Schedule Court Hearing</span>
+              </button>
+            }
+          </div>
+
+          @if (caseData().hearings?.length === 0) {
+            <app-empty-state
+              icon="gavel"
+              title="No hearings scheduled"
+              description="No court appearances have been listed for this case yet."
+              actionText="Schedule First Hearing"
+              (action)="openHearingModal()"
+            ></app-empty-state>
+          } @else {
+            <div class="hearings-timeline">
+              @for (h of caseData().hearings; track h.id) {
+                <div class="card hearing-card-item">
+                  <div class="h-card-left">
+                    <div class="h-date-box">
+                      <span class="hd-num">{{ h.hearingDate | date:'dd' }}</span>
+                      <span class="hd-mon">{{ h.hearingDate | date:'MMM yyyy' }}</span>
+                    </div>
+                  </div>
+
+                  <div class="h-card-body">
+                    <div class="h-purpose-title">{{ h.purpose }}</div>
+                    <div class="h-meta-row">
+                      <span>Time: <strong>{{ h.hearingTime || '09:30 AM' }}</strong></span>
+                      <span>·</span>
+                      <span>Court: <strong>{{ caseData().court?.name || 'High Court' }}</strong></span>
+                      <span>·</span>
+                      <span>Room: <strong>{{ h.courtroom || 'Courtroom 3' }}</strong></span>
+                      <span>·</span>
+                      <span>Counsel: <strong>{{ h.assignedAdvocate?.fullName || 'Assigned Advocate' }}</strong></span>
+                    </div>
+
+                    @if (h.proceedingsSummary) {
+                      <div class="proceedings-box">
+                        <strong>Proceedings:</strong> {{ h.proceedingsSummary }}
+                      </div>
+                    }
+
+                    @if (h.orderPassed) {
+                      <div class="order-box">
+                        <strong>Order Passed:</strong> {{ h.orderPassed }}
+                      </div>
+                    }
+
+                    @if (h.nextHearingDate) {
+                      <div class="next-hearing-tag">
+                        Next Date: {{ h.nextHearingDate | date:'mediumDate' }} ({{ h.nextHearingPurpose || 'Proceedings' }})
+                      </div>
+                    }
+                  </div>
+
+                  <div class="h-card-actions">
+                    <span class="badge" [ngClass]="h.status === 'completed' ? 'badge-success' : h.status === 'adjourned' ? 'badge-warning' : 'badge-primary'">
+                      {{ h.status }}
+                    </span>
+                    @if (h.status !== 'completed' && authService.hasPermission('hearing.edit')) {
+                      <button class="btn btn-secondary btn-sm mt-2" (click)="openProceedingModal(h)">
+                        Record Outcome
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Tab Content 3: Documents -->
+      @if (activeTab() === 'documents') {
+        <div class="tab-content-panel">
+          <div class="tab-actions-header">
+            <div>
+              <h3 class="section-heading">Case Documents & Pleadings</h3>
+              <p class="text-xs text-muted">Petitions, written statements, affidavits, and court orders.</p>
+            </div>
+            <a routerLink="/documents" class="btn btn-primary btn-sm">
+              <app-icon name="upload" [size]="14"></app-icon>
+              <span>Upload Document</span>
+            </a>
+          </div>
+
+          @if (caseData().documents?.length === 0) {
+            <app-empty-state
+              icon="file-text"
+              title="No documents uploaded"
+              description="No pleadings, affidavits, or exhibits have been filed yet."
+              actionText="Upload Document"
+            ></app-empty-state>
+          } @else {
+            <div class="documents-grid">
+              @for (doc of caseData().documents; track doc.id) {
+                <div class="card doc-card">
+                  <div class="doc-icon-box">
+                    <app-icon name="file-text" [size]="24" color="var(--primary)"></app-icon>
+                  </div>
+                  <div class="doc-details">
+                    <div class="doc-title">{{ doc.title }}</div>
+                    <div class="doc-meta">
+                      <span class="badge badge-neutral text-xs">{{ doc.category }}</span>
+                      <span class="text-xs text-muted">{{ doc.fileSize / 1024 | number:'1.0-0' }} KB</span>
+                    </div>
+                  </div>
+                  <a [href]="getDownloadUrl(doc.id)" target="_blank" class="btn btn-secondary btn-sm">
+                    <app-icon name="download" [size]="14"></app-icon>
+                  </a>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Tab Content 4: Tasks -->
+      @if (activeTab() === 'tasks') {
+        <div class="tab-content-panel">
+          <div class="tab-actions-header">
+            <div>
+              <h3 class="section-heading">Case Tasks & Assignments</h3>
+              <p class="text-xs text-muted">Drafting, evidence preparation, and court registry deadlines.</p>
+            </div>
+            <a routerLink="/tasks" class="btn btn-primary btn-sm">
+              <app-icon name="plus" [size]="14"></app-icon>
+              <span>New Task</span>
+            </a>
+          </div>
+
+          @if (caseData().tasks?.length === 0) {
+            <app-empty-state icon="check-square" title="No active tasks"></app-empty-state>
+          } @else {
+            <div class="tasks-list-panel">
+              @for (t of caseData().tasks; track t.id) {
+                <div class="card task-row-card">
+                  <div class="task-left">
+                    <div class="task-name">{{ t.title }}</div>
+                    <div class="task-desc-sub">{{ t.description }}</div>
+                    <div class="task-tags-row">
+                      <span class="badge badge-neutral text-xs">{{ t.taskType }}</span>
+                      <span class="text-xs text-muted">Due: {{ t.dueDate | date:'mediumDate' }}</span>
+                    </div>
+                  </div>
+                  <span class="badge" [ngClass]="t.status === 'completed' ? 'badge-success' : 'badge-warning'">
+                    {{ t.status }}
+                  </span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Tab Content 5: Billing & Finance -->
+      @if (activeTab() === 'finance') {
+        <div class="tab-content-panel">
+          <div class="tab-actions-header">
+            <div>
+              <h3 class="section-heading">Financial Accounts & Fee Agreements</h3>
+              <p class="text-xs text-muted">Client invoices, payments received, and litigation expenses.</p>
+            </div>
+            <a routerLink="/finance" class="btn btn-primary btn-sm">
+              <app-icon name="plus" [size]="14"></app-icon>
+              <span>Create Invoice</span>
+            </a>
+          </div>
+
+          <div class="finance-case-summary">
+            <div class="card fin-kpi">
+              <span class="fin-kpi-label">Agreed Fee</span>
+              <span class="fin-kpi-val">{{ formatCurrency(caseData().agreedFee) }}</span>
+            </div>
+            <div class="card fin-kpi">
+              <span class="fin-kpi-label">Total Invoiced</span>
+              <span class="fin-kpi-val">{{ formatCurrency(caseData().invoices?.[0]?.totalAmount || 0) }}</span>
+            </div>
+            <div class="card fin-kpi">
+              <span class="fin-kpi-label">Amount Paid</span>
+              <span class="fin-kpi-val text-success">{{ formatCurrency(caseData().invoices?.[0]?.amountPaid || 0) }}</span>
+            </div>
+            <div class="card fin-kpi">
+              <span class="fin-kpi-label">Balance Due</span>
+              <span class="fin-kpi-val text-danger">{{ formatCurrency(caseData().invoices?.[0]?.balanceDue || 0) }}</span>
+              <div class="divider"></div>
+
+              <div class="pane-header-row">
+                <h3 class="section-heading mb-0">Legal Precedents & Citations</h3>
+                @if (authService.hasPermission('case.edit')) {
+                  <button class="btn btn-secondary btn-xs" (click)="openReferenceModal()">
+                    <app-icon name="plus" [size]="12"></app-icon>
+                    <span>Link Precedent</span>
+                  </button>
+                }
+              </div>
+
+              @if (caseData().references?.length === 0) {
+                <p class="text-xs text-muted">No statutory references or case laws linked yet.</p>
+              } @else {
+                <div class="references-list mt-2">
+                  @for (r of caseData().references; track r.id) {
+                    <div class="contact-card-sub">
+                      <div class="contact-header-line">
+                        <div class="font-bold text-xs text-primary">{{ r.legalReference?.citation }}</div>
+                        @if (authService.hasPermission('case.edit')) {
+                          <button class="btn-icon-sub text-danger" (click)="unlinkReference(r.legalReferenceId)" title="Unlink reference">
+                            <app-icon name="trash" [size]="12"></app-icon>
+                          </button>
+                        }
+                      </div>
+                      <div class="text-xs font-medium">{{ r.legalReference?.title }}</div>
+                      <div class="text-xs text-muted">{{ r.legalReference?.court }} · {{ r.legalReference?.year }}</div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Tab Content 6: Diary -->
+      @if (activeTab() === 'diary') {
+        <div class="tab-content-panel">
+          <div class="tab-actions-header">
+            <div>
+              <h3 class="section-heading">Advocate Confidential Case Diary</h3>
+              <p class="text-xs text-muted">Private proceedings notes, judicial observations, and internal counsel remarks.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" (click)="openDiaryModal()">
+              <app-icon name="plus" [size]="14"></app-icon>
+              <span>Record Diary Note</span>
+            </button>
+          </div>
+
+          @if (caseData().diaries?.length === 0) {
+            <app-empty-state icon="book-open" title="No diary notes yet" description="Advocates can record private hearing observations and strategy notes."></app-empty-state>
+          } @else {
+            <div class="diary-entries-list">
+              @for (d of caseData().diaries; track d.id) {
+                <div class="card diary-card">
+                  <div class="diary-header">
+                    <div>
+                      <span class="diary-author">{{ d.advocate?.fullName || 'Senior Advocate' }}</span>
+                      <span class="diary-date">· {{ d.entryDate | date:'mediumDate' }}</span>
+                    </div>
+                    <span class="badge badge-warning text-xs">Confidential</span>
+                  </div>
+                  <div class="diary-proceedings">
+                    <strong>Proceedings:</strong> {{ d.proceedings }}
+                  </div>
+                  @if (d.courtObservations) {
+                    <div class="diary-obs">
+                      <strong>Court Observations:</strong> {{ d.courtObservations }}
+                    </div>
+                  }
+                  @if (d.privateNotes) {
+                    <div class="diary-notes">
+                      <strong>Counsel Notes:</strong> {{ d.privateNotes }}
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Tab Content 7: History Timeline -->
+      @if (activeTab() === 'history') {
+        <div class="tab-content-panel">
+          <h3 class="section-heading">Litigation Activity History & Audit Trail</h3>
+          <div class="timeline-container mt-3">
+            @for (h of caseData().history; track h.id) {
+              <div class="timeline-node">
+                <div class="timeline-dot"></div>
+                <div class="timeline-body">
+                  <div class="timeline-action">{{ h.action }}</div>
+                  <div class="timeline-desc">{{ h.description }}</div>
+                  <div class="timeline-meta">{{ h.performedBy }} · {{ h.createdAt | date:'medium' }}</div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Schedule Court Hearing Modal -->
+<app-modal
+  [isOpen]="isHearingModalOpen()"
+  title="Schedule Court Hearing"
+  subtitle="List upcoming court date and appearance before judge"
+  maxWidth="540px"
+  (close)="closeHearingModal()"
+>
+  <form [formGroup]="hearingForm" class="hearing-schedule-form">
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Hearing Date *</label>
+        <input type="date" formControlName="hearingDate" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Hearing Time</label>
+        <input type="text" formControlName="hearingTime" class="form-control" placeholder="09:30 AM" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Courtroom / Room #</label>
+        <input type="text" formControlName="courtroom" class="form-control" placeholder="Courtroom 3" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Bench</label>
+        <input type="text" formControlName="bench" class="form-control" placeholder="Single Bench" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Hearing Purpose *</label>
+      <input type="text" formControlName="purpose" class="form-control" placeholder="e.g. Cross-examination of PW-1 / Arguments" />
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeHearingModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="scheduleHearing()">Schedule Hearing</button>
+  </div>
+</app-modal>
+
+<!-- Record Hearing Outcome Modal -->
+<app-modal
+  [isOpen]="isProceedingModalOpen()"
+  title="Record Court Hearing Proceedings"
+  subtitle="Document court observations, orders passed, and schedule next appearance"
+  maxWidth="640px"
+  (close)="closeProceedingModal()"
+>
+  <form [formGroup]="proceedingForm" class="proceeding-record-form">
+    <div class="form-group">
+      <label class="form-label">Hearing Outcome Status *</label>
+      <select formControlName="status" class="form-control">
+        <option value="completed">Completed / Arguments Concluded</option>
+        <option value="adjourned">Adjourned to Next Date</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Proceedings Summary *</label>
+      <textarea formControlName="proceedingsSummary" rows="3" class="form-control" placeholder="Arguments advanced by counsel, evidence produced..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Court Order Passed</label>
+      <textarea formControlName="orderPassed" rows="2" class="form-control" placeholder="Short order or directions passed by the judge..."></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Next Hearing Date (if adjourned)</label>
+        <input type="date" formControlName="nextHearingDate" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Next Hearing Purpose</label>
+        <input type="text" formControlName="nextHearingPurpose" class="form-control" placeholder="e.g. For final arguments" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Advocate Private Diary Notes</label>
+      <input type="text" formControlName="diaryNotes" class="form-control" placeholder="Internal remarks not shared with opposing side" />
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeProceedingModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitProceeding()">Save Outcome & Update Diary</button>
+  </div>
+</app-modal>
+
+<!-- Diary Entry Modal -->
+<app-modal
+  [isOpen]="isDiaryModalOpen()"
+  title="Record Confidential Case Diary Note"
+  subtitle="Add confidential legal observations and trial preparation thoughts"
+  (close)="closeDiaryModal()"
+>
+  <form [formGroup]="diaryForm">
+    <div class="form-group">
+      <label class="form-label">Proceedings / Discussion Summary *</label>
+      <textarea formControlName="proceedings" rows="3" class="form-control" placeholder="Notes on conference with client or witness prep..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Private Legal Thoughts & Next Steps</label>
+      <textarea formControlName="privateNotes" rows="2" class="form-control" placeholder="Strategic considerations for next court appearance..."></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeDiaryModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitDiaryEntry()">Record Note</button>
+  </div>
+</app-modal>
+
+<!-- Close Case Modal -->
+<app-modal
+  [isOpen]="isCloseModalOpen()"
+  title="Conclude and Close Legal Matter"
+  subtitle="Record the closing decree, judgment disposition, or settlement reason"
+  maxWidth="540px"
+  (close)="closeCloseModal()"
+>
+  <form [formGroup]="closeForm">
+    <div class="form-group">
+      <label class="form-label">Closure Grounds / Disposal Reason *</label>
+      <textarea formControlName="reason" rows="3" class="form-control" placeholder="e.g. Decree awarded, Out-of-court settlement reached, Dismissed..."></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeCloseModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitCloseCase()">Confirm & Close Matter</button>
+  </div>
+</app-modal>
+
+<!-- Add Party Modal -->
+<app-modal
+  [isOpen]="isPartyModalOpen()"
+  title="Add Case Party"
+  subtitle="Register a co-plaintiff, defendant, witness, or interested stakeholder"
+  maxWidth="520px"
+  (close)="closePartyModal()"
+>
+  <form [formGroup]="partyForm" (ngSubmit)="submitParty()">
+    <div class="form-group">
+      <label class="form-label">Party Full Legal Name *</label>
+      <input type="text" formControlName="name" class="form-control" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Party Role *</label>
+        <select formControlName="role" class="form-control">
+          <option value="Plaintiff">Plaintiff / Petitioner</option>
+          <option value="Defendant">Defendant / Respondent</option>
+          <option value="Co-Plaintiff">Co-Plaintiff</option>
+          <option value="Co-Defendant">Co-Defendant</option>
+          <option value="Intervenor">Intervenor / 3rd Party</option>
+          <option value="Witness">Key Witness</option>
+        </select>
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Party Type</label>
+        <select formControlName="partyType" class="form-control">
+          <option value="individual">Individual</option>
+          <option value="corporate">Corporate / Entity</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Representing Advocate (Counsel)</label>
+      <input type="text" formControlName="advocate" class="form-control" placeholder="Advocate on record for this party" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Contact Information</label>
+      <input type="text" formControlName="contactInfo" class="form-control" placeholder="Email, phone, or address" />
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closePartyModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitParty()">Add Case Party</button>
+  </div>
+</app-modal>
+
+<!-- Link Legal Reference Modal -->
+<app-modal
+  [isOpen]="isReferenceModalOpen()"
+  title="Link Legal Precedent / Case Law"
+  subtitle="Cite a high court or supreme court judgment relevant to this cause"
+  maxWidth="560px"
+  (close)="closeReferenceModal()"
+>
+  <form [formGroup]="refForm" (ngSubmit)="submitReference()">
+    <div class="form-group">
+      <label class="form-label">Precedent Citation *</label>
+      <input type="text" formControlName="citation" class="form-control font-mono" placeholder="e.g. 2024 SCMR 1045 or PLD 2023 SC 450" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Case Law Title *</label>
+      <input type="text" formControlName="title" class="form-control" placeholder="e.g. Federation of Pakistan v. Haji Muhammad" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-2">
+        <label class="form-label">Court</label>
+        <input type="text" formControlName="court" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Year</label>
+        <input type="number" formControlName="year" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Relevant Statutory Provisions</label>
+      <input type="text" formControlName="relevantProvisions" class="form-control" placeholder="e.g. Section 12, Specific Relief Act 1877" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Ratio Decidendi / Summary</label>
+      <textarea formControlName="summary" rows="2" class="form-control" placeholder="Legal proposition established..."></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeReferenceModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitReference()">Link Precedent</button>
+  </div>
+</app-modal>
+
+<!-- Confirm Delete Case Modal -->
+<app-confirm-modal
+  [isOpen]="isDeleteModalOpen()"
+  title="Archive / Delete Case Docket"
+  [message]="'Are you sure you want to permanently delete case ' + (caseData()?.internalReference || '') + ' (' + (caseData()?.title || '') + ')? All related assignments and proceedings will be removed.'"
+  confirmText="Delete Case"
+  [isDanger]="true"
+  [isLoading]="isDeleting()"
+  (confirm)="confirmDeleteCase()"
+  (cancel)="closeDeleteModal()"
+></app-confirm-modal>
+
+<!-- Confirm Delete Party Modal -->
+<app-confirm-modal
+  [isOpen]="isDeletePartyModalOpen()"
+  title="Remove Case Party"
+  [message]="'Are you sure you want to remove party ' + (partyToDelete()?.name || '') + '?'"
+  confirmText="Remove Party"
+  [isDanger]="true"
+  (confirm)="confirmDeleteParty()"
+  (cancel)="closeDeletePartyModal()"
+></app-confirm-modal>
+
+

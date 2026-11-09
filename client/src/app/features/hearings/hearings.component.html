@@ -1,0 +1,334 @@
+<div class="hearings-page">
+  <div class="page-header no-print">
+    <div class="header-titles">
+      <div class="welcome-user-tag">LITIGATION CALENDAR & DIARY</div>
+      <h1 class="page-title">Court Hearings & Daily Cause List</h1>
+      <p class="page-subtitle">Schedule, track court proceedings, courtroom listings, and advocate appearances.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" (click)="printCauseList()">
+        <app-icon name="printer" [size]="14"></app-icon>
+        <span>Print Cause List</span>
+      </button>
+      <button class="btn btn-secondary btn-sm" (click)="loadHearings()">
+        <app-icon name="clock" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      @if (authService.hasPermission('hearing.create')) {
+        <button class="btn btn-primary btn-sm" (click)="openScheduleModal()">
+          <app-icon name="plus" [size]="14"></app-icon>
+          <span>Schedule Hearing</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Conflict Alert Banner -->
+  @if (conflicts().length > 0) {
+    <div class="card conflict-banner no-print">
+      <div class="conflict-icon">
+        <app-icon name="alert-triangle" [size]="20" color="#B45309"></app-icon>
+      </div>
+      <div class="conflict-content">
+        <div class="conflict-title">Advocate Scheduling Conflict Detected</div>
+        @for (c of conflicts(); track c.advocate) {
+          <div class="conflict-desc">
+            <strong>{{ c.advocate }}</strong> is scheduled for overlapping hearings at {{ c.time }} across: {{ c.caseReferences.join(', ') }} ({{ c.courts.join(', ') }}).
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Filter & Date Controls -->
+  <div class="card filter-toolbar no-print">
+    <div class="date-picker-group">
+      <label class="date-label">Cause List Date:</label>
+      <input
+        type="date"
+        class="form-control date-input"
+        [ngModel]="selectedDate()"
+        (ngModelChange)="selectedDate.set($event); loadHearings()"
+      />
+    </div>
+
+    <div class="filter-controls">
+      <app-custom-select
+        [options]="hearingStatusOptions"
+        [ngModel]="statusFilter()"
+        (valueChange)="statusFilter.set($event); loadHearings()"
+        placeholder="All Statuses"
+        variant="filter"
+        minWidth="145px"
+      ></app-custom-select>
+    </div>
+  </div>
+
+  <!-- Printable Cause List & Hearing Cards -->
+  @if (isLoading()) {
+    <app-loading-skeleton type="table" [rows]="6"></app-loading-skeleton>
+  } @else if (hearings().length === 0) {
+    <app-empty-state
+      icon="gavel"
+      title="No hearings listed"
+      description="There are no court appearances scheduled for the selected filters."
+      actionText="Schedule Hearing"
+      (action)="openScheduleModal()"
+    ></app-empty-state>
+  } @else {
+    <div class="card cause-list-table-card">
+      <div class="cause-list-print-header print-only">
+        <h2>LEXORA CHAMBERS & PARTNERS</h2>
+        <h3>DAILY COURT CAUSE LIST — {{ selectedDate() | date:'fullDate' }}</h3>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date & Time</th>
+              <th>Court & Room</th>
+              <th>Case Reference & Title</th>
+              <th>Judge / Bench</th>
+              <th>Hearing Purpose</th>
+              <th>Assigned Advocate</th>
+              <th>Status</th>
+              <th class="text-right no-print">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (h of hearings(); track h.id) {
+              <tr>
+                <td>
+                  <div class="h-date font-bold">{{ h.hearingDate | date:'mediumDate' }}</div>
+                  <div class="h-time text-xs text-primary font-mono">{{ h.hearingTime || '09:30 AM' }}</div>
+                </td>
+                <td>
+                  <div class="court-title">{{ h.court?.name || 'High Court of Sindh' }}</div>
+                  <div class="room-title text-xs text-muted">{{ h.courtroom || 'Courtroom 3' }}</div>
+                </td>
+                <td>
+                  <a [routerLink]="['/cases', h.case.id]" class="h-case-link font-bold">
+                    {{ h.case.internalReference }}
+                  </a>
+                  <div class="h-case-title text-xs text-secondary">{{ h.case.title }}</div>
+                </td>
+                <td>
+                  <span class="text-xs">{{ h.judge?.name || h.bench || 'Honourable Court' }}</span>
+                </td>
+                <td>
+                  <div class="purpose-cell">{{ h.purpose }}</div>
+                  @if (h.proceedingsSummary) {
+                    <div class="text-xs text-muted mt-1">Summary: {{ h.proceedingsSummary }}</div>
+                  }
+                </td>
+                <td>
+                  <span class="adv-badge">
+                    {{ h.assignedAdvocate?.firstName }} {{ h.assignedAdvocate?.lastName }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="h.status === 'completed' ? 'badge-success' : h.status === 'adjourned' ? 'badge-warning' : 'badge-primary'">
+                    {{ h.status }}
+                  </span>
+                </td>
+                <td class="text-right no-print">
+                  <div class="row-actions-group">
+                    <a [routerLink]="['/cases', h.case.id]" class="btn btn-secondary btn-xs" title="Open Case">
+                      <app-icon name="chevron-right" [size]="12"></app-icon>
+                    </a>
+                    @if (authService.hasPermission('hearing.edit')) {
+                      <button class="btn btn-secondary btn-xs" (click)="openProceedingModal(h)" title="Record Outcome">
+                        <app-icon name="check-square" [size]="12"></app-icon>
+                      </button>
+                      <button class="btn btn-secondary btn-xs" (click)="openRescheduleModal(h)" title="Adjourn / Reschedule">
+                        <app-icon name="clock" [size]="12"></app-icon>
+                      </button>
+                    }
+                    @if (authService.hasPermission('hearing.delete') || authService.hasRole('admin')) {
+                      <button class="btn btn-danger btn-xs" (click)="openDeleteModal(h)" title="Remove Hearing">
+                        <app-icon name="trash" [size]="12"></app-icon>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-pagination
+        [page]="page()"
+        [limit]="limit()"
+        [total]="total()"
+        [totalPages]="totalPages()"
+        (pageChange)="onPageChange($event)"
+        (limitChange)="onLimitChange($event)"
+      ></app-pagination>
+    </div>
+  }
+</div>
+
+<!-- Schedule Hearing Modal -->
+<app-modal
+  [isOpen]="isScheduleModalOpen()"
+  title="Schedule Court Hearing"
+  subtitle="Register a court appearance and calendar slot"
+  maxWidth="600px"
+  (close)="closeScheduleModal()"
+>
+  <form [formGroup]="scheduleForm" (ngSubmit)="submitScheduleHearing()">
+    <div class="form-group">
+      <label class="form-label">Matter / Case Docket *</label>
+      <select formControlName="caseId" class="form-control">
+        <option value="">Select legal case...</option>
+        @for (c of cases(); track c.id) {
+          <option [value]="c.id">{{ c.internalReference }} — {{ c.title }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Hearing Date *</label>
+        <input type="date" formControlName="hearingDate" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Hearing Time</label>
+        <input type="text" formControlName="hearingTime" class="form-control font-mono" placeholder="09:30 AM" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Court / Forum</label>
+        <select formControlName="courtId" class="form-control">
+          <option value="">Select court...</option>
+          @for (c of courts(); track c.id) {
+            <option [value]="c.id">{{ c.name }}</option>
+          }
+        </select>
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Courtroom / Room No.</label>
+        <input type="text" formControlName="courtroom" class="form-control" placeholder="Courtroom 3" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Hearing Purpose *</label>
+        <input type="text" formControlName="purpose" class="form-control" placeholder="e.g. Arguments on stay application" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Lead Assigned Advocate</label>
+        <select formControlName="assignedAdvocateId" class="form-control">
+          <option value="">Select advocate...</option>
+          @for (a of advocates(); track a.id) {
+            <option [value]="a.id">{{ a.fullName }} ({{ a.designation }})</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Bench / Court Composition</label>
+      <input type="text" formControlName="bench" class="form-control" placeholder="Single Bench / Division Bench" />
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeScheduleModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitScheduleHearing()">Schedule Hearing</button>
+  </div>
+</app-modal>
+
+<!-- Reschedule Hearing Modal -->
+<app-modal
+  [isOpen]="isRescheduleModalOpen()"
+  title="Adjourn / Reschedule Court Hearing"
+  subtitle="Update listing date, room, and record reason for adjournment"
+  maxWidth="520px"
+  (close)="closeRescheduleModal()"
+>
+  <form [formGroup]="rescheduleForm" (ngSubmit)="submitReschedule()">
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">New Hearing Date *</label>
+        <input type="date" formControlName="hearingDate" class="form-control" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">New Time</label>
+        <input type="text" formControlName="hearingTime" class="form-control font-mono" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Courtroom</label>
+      <input type="text" formControlName="courtroom" class="form-control" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Reason for Adjournment *</label>
+      <textarea formControlName="adjournmentReason" rows="2" class="form-control"></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeRescheduleModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitReschedule()">Adjourn / Reschedule</button>
+  </div>
+</app-modal>
+
+<!-- Record Proceedings Outcome Modal -->
+<app-modal
+  [isOpen]="isProceedingModalOpen()"
+  title="Record Hearing Outcome & Proceedings"
+  subtitle="Document court observations and order summary"
+  maxWidth="560px"
+  (close)="closeProceedingModal()"
+>
+  <form [formGroup]="proceedingForm" (ngSubmit)="submitProceeding()">
+    <div class="form-group">
+      <label class="form-label">Hearing Status *</label>
+      <select formControlName="status" class="form-control">
+        <option value="completed">Completed / Arguments Heard</option>
+        <option value="adjourned">Adjourned</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Proceedings Summary *</label>
+      <textarea formControlName="proceedingsSummary" rows="3" class="form-control" placeholder="Arguments made, documents submitted..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Court Order Passed</label>
+      <textarea formControlName="orderPassed" rows="2" class="form-control" placeholder="Short order passed by the judge..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Advocate Diary Notes</label>
+      <textarea formControlName="diaryNotes" rows="2" class="form-control" placeholder="Confidential observations..."></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeProceedingModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitProceeding()">Save Proceedings</button>
+  </div>
+</app-modal>
+
+<!-- Confirm Delete Hearing Modal -->
+<app-confirm-modal
+  [isOpen]="isDeleteModalOpen()"
+  title="Remove Court Hearing"
+  [message]="'Are you sure you want to remove hearing on ' + (hearingToDelete()?.hearingDate | date:'mediumDate') + ' for ' + (hearingToDelete()?.case?.internalReference || '') + '?'"
+  confirmText="Remove Hearing"
+  [isDanger]="true"
+  [isLoading]="isDeleting()"
+  (confirm)="confirmDeleteHearing()"
+  (cancel)="closeDeleteModal()"
+></app-confirm-modal>

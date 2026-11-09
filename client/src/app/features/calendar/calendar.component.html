@@ -1,0 +1,105 @@
+<div class="calendar-page">
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">COURT DOCKET & STATUTORY TIMELINES</div>
+      <h1 class="page-title">Litigation Master Calendar</h1>
+      <p class="page-subtitle">Unified view of court hearings, consultation sessions, and statutory limitation deadlines.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" (click)="openLimitationModal()">
+        <app-icon name="clock" [size]="14"></app-icon>
+        <span>Limitation Calculator</span>
+      </button>
+      <a routerLink="/hearings" class="btn btn-primary btn-sm">
+        <app-icon name="gavel" [size]="14"></app-icon>
+        <span>Daily Cause List</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Agenda View of Hearings -->
+  <div class="card calendar-view-card">
+    <div class="cal-header">
+      <h3 class="cal-month-title">{{ currentDate() | date:'MMMM yyyy' }}</h3>
+      <span class="badge badge-primary">{{ hearings().length }} Scheduled Appearances</span>
+    </div>
+
+    <div class="calendar-agenda-list">
+      @for (h of hearings(); track h.id) {
+        <div class="agenda-item">
+          <div class="agenda-date-box">
+            <span class="ag-day">{{ h.hearingDate | date:'dd' }}</span>
+            <span class="ag-month">{{ h.hearingDate | date:'MMM' }}</span>
+          </div>
+          <div class="agenda-content">
+            <div class="ag-time-court">
+              <span class="font-bold text-primary">{{ h.hearingTime || '09:30 AM' }}</span>
+              <span>·</span>
+              <span class="font-bold">{{ h.court?.name || 'High Court' }}</span>
+              <span>·</span>
+              <span class="text-muted">{{ h.courtroom || 'Courtroom 3' }}</span>
+            </div>
+            <div class="ag-case-title">
+              <a [routerLink]="['/cases', h.case.id]" class="case-link">{{ h.case.internalReference }}: {{ h.case.title }}</a>
+            </div>
+            <div class="ag-purpose text-xs text-secondary">{{ h.purpose }}</div>
+          </div>
+          <div class="agenda-status">
+            <span class="badge" [ngClass]="h.status === 'completed' ? 'badge-success' : 'badge-primary'">
+              {{ h.status }}
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- Statutory Limitation Calculator Modal -->
+<app-modal
+  [isOpen]="isLimitationModalOpen()"
+  title="Statutory Limitation Calculator"
+  subtitle="Provisional computation of limitation periods under Limitation Act, 1908"
+  maxWidth="540px"
+  (close)="closeLimitationModal()"
+>
+  <div class="limitation-calculator-body">
+    <div class="disclaimer-alert">
+      <app-icon name="alert-triangle" [size]="16" color="#B45309"></app-icon>
+      <span><strong>Verification Notice:</strong> This provides provisional estimation. The responsible advocate must independently verify statutory exclusions and gazetted amendments.</span>
+    </div>
+
+    <div class="form-group mt-3">
+      <label class="form-label">Starting Date (Cause of Action / Impugned Order Date) *</label>
+      <input type="date" [(ngModel)]="limitStartDate" (ngModelChange)="calculateLimitation()" class="form-control" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Statutory Days Allowed *</label>
+        <select [(ngModel)]="limitDays" (ngModelChange)="calculateLimitation()" class="form-control">
+          <option [ngValue]="15">15 Days (Review / Rehearing)</option>
+          <option [ngValue]="30">30 Days (High Court Civil Appeal)</option>
+          <option [ngValue]="60">60 Days (Supreme Court CPLA)</option>
+          <option [ngValue]="90">90 Days (Suit for Specific Performance)</option>
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Custom Days</label>
+        <input type="number" [(ngModel)]="limitDays" (ngModelChange)="calculateLimitation()" class="form-control" />
+      </div>
+    </div>
+
+    <div class="calculated-result-box">
+      <span class="result-label">PROVISIONAL STATUTORY DEADLINE:</span>
+      <span class="result-date">{{ calculatedDeadline }}</span>
+    </div>
+  </div>
+
+  <div modal-actions>
+    <button class="btn btn-primary" (click)="closeLimitationModal()">Done</button>
+  </div>
+</app-modal>
+

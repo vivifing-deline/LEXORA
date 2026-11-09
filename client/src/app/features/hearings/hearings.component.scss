@@ -1,0 +1,160 @@
+.hearings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.welcome-user-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin-top: 0.2rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.conflict-banner {
+  background: #FEF3C7;
+  border: 1px solid #FCD34D;
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+}
+
+.conflict-icon {
+  margin-top: 2px;
+}
+
+.conflict-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #B45309;
+}
+
+.conflict-desc {
+  font-size: 12px;
+  color: #78350F;
+  margin-top: 2px;
+}
+
+.filter-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+}
+
+.date-picker-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.date-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.date-input {
+  width: 170px;
+  padding: 0.35rem 0.6rem;
+}
+
+.cause-list-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+
+  th {
+    padding: 0.85rem 1rem;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    background: var(--bg-surface-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  td {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 13px;
+    vertical-align: middle;
+  }
+}
+
+.h-case-link {
+  color: var(--primary);
+  &:hover { text-decoration: underline; }
+}
+
+.court-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.purpose-cell {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.adv-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-secondary);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.row-actions-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.print-only { display: none; }
+
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .app-sidebar, .app-header { display: none !important; }
+  body { background: #FFFFFF !important; color: #000000 !important; }
+}
+

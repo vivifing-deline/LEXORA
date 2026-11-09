@@ -1,0 +1,331 @@
+<div class="tasks-page">
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">WORKFLOW & COLLABORATION</div>
+      <h1 class="page-title">Tasks & Litigation Assignments</h1>
+      <p class="page-subtitle">Assign and track legal drafting, pleadings preparation, and filing milestones.</p>
+    </div>
+
+    <div class="header-actions">
+      <div class="view-toggle-box">
+        <button class="view-btn" [class.active]="viewMode() === 'kanban'" (click)="viewMode.set('kanban')" title="Kanban Board">
+          <app-icon name="layout-dashboard" [size]="15"></app-icon>
+          <span>Board</span>
+        </button>
+        <button class="view-btn" [class.active]="viewMode() === 'list'" (click)="viewMode.set('list')" title="List View">
+          <app-icon name="check-square" [size]="15"></app-icon>
+          <span>List</span>
+        </button>
+      </div>
+
+      @if (authService.hasPermission('task.create')) {
+        <button class="btn btn-primary btn-sm" (click)="openCreateModal()">
+          <app-icon name="plus" [size]="14"></app-icon>
+          <span>New Task</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="cards" [rows]="4"></app-loading-skeleton>
+  } @else {
+    <!-- Kanban Board View -->
+    @if (viewMode() === 'kanban') {
+      <div class="kanban-board">
+        @for (col of columns; track col.id) {
+          <div class="kanban-column">
+            <div class="kanban-column-header">
+              <div class="col-title-wrap">
+                <span class="col-color-dot" [style.background]="col.color"></span>
+                <span class="col-title">{{ col.label }}</span>
+              </div>
+              <span class="col-count-badge">{{ getTasksByStatus(col.id).length }}</span>
+            </div>
+
+            <div class="kanban-cards-stack"
+                 (dragover)="onDragOver($event)"
+                 (dragleave)="onDragLeave($event)"
+                 (drop)="onDrop($event, col.id)">
+              @for (task of getTasksByStatus(col.id); track task.id) {
+                <div class="card kanban-card"
+                     draggable="true"
+                     [class.is-dragging]="draggedTask()?.id === task.id"
+                     (dragstart)="onDragStart($event, task)"
+                     (dragend)="onDragEnd()">
+                  <div class="k-top-row">
+                    <div class="k-tags-wrap">
+                      <span class="badge badge-neutral text-xs">{{ task.taskType }}</span>
+                      <span class="badge text-xs" [ngClass]="task.priority === 'urgent' ? 'badge-danger' : task.priority === 'high' ? 'badge-warning' : 'badge-primary'">
+                        {{ task.priority }}
+                      </span>
+                    </div>
+                    <div class="k-actions-inline">
+                      @if (authService.hasPermission('task.manage') || authService.hasRole('admin')) {
+                        <button class="btn-icon-sub" (click)="openEditModal(task)" title="Edit Task">
+                          <app-icon name="edit" [size]="12"></app-icon>
+                        </button>
+                        <button class="btn-icon-sub text-danger" (click)="openDeleteModal(task)" title="Delete Task">
+                          <app-icon name="trash" [size]="12"></app-icon>
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="k-task-title">{{ task.title }}</div>
+                  @if (task.description) {
+                    <p class="k-task-desc">{{ task.description }}</p>
+                  }
+
+                  @if (task.case) {
+                    <div class="k-case-tag font-mono">
+                      <app-icon name="briefcase" [size]="11"></app-icon>
+                      <span>{{ task.case.internalReference }}</span>
+                    </div>
+                  }
+
+                  <div class="k-card-footer">
+                    <div class="k-assignees">
+                      @for (a of task.assignments; track a.id) {
+                        <span class="assignee-dot" [title]="a.user.fullName">
+                          {{ a.user.firstName.charAt(0) }}
+                        </span>
+                      }
+                    </div>
+
+                    <div class="k-stage-dropdown">
+                      <app-custom-select
+                        [options]="taskStatusOptions"
+                        [ngModel]="task.status"
+                        (valueChange)="updateTaskStatus(task.id, $event)"
+                        variant="filter"
+                        minWidth="125px"
+                      ></app-custom-select>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- List View -->
+    @if (viewMode() === 'list') {
+      <div class="card table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Task Title</th>
+                <th>Type</th>
+                <th>Related Case</th>
+                <th>Assigned To</th>
+                <th>Due Date</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of tasks(); track t.id) {
+                <tr>
+                  <td>
+                    <div class="font-bold">{{ t.title }}</div>
+                    <div class="text-xs text-muted">{{ t.description }}</div>
+                  </td>
+                  <td><span class="badge badge-neutral">{{ t.taskType }}</span></td>
+                  <td><span class="font-mono text-xs">{{ t.case?.internalReference || 'General' }}</span></td>
+                  <td>
+                    <div class="assignees-inline">
+                      @for (a of t.assignments; track a.id) {
+                        <span class="assignee-dot">{{ a.user.firstName.charAt(0) }}</span>
+                        <span class="text-xs">{{ a.user.fullName }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td><span class="text-xs">{{ t.dueDate | date:'mediumDate' }}</span></td>
+                  <td>
+                    <span class="badge" [ngClass]="t.priority === 'urgent' ? 'badge-danger' : t.priority === 'high' ? 'badge-warning' : 'badge-primary'">
+                      {{ t.priority }}
+                    </span>
+                  </td>
+                  <td>
+                    <app-custom-select
+                      [options]="taskStatusOptions"
+                      [ngModel]="t.status"
+                      (valueChange)="updateTaskStatus(t.id, $event)"
+                      variant="filter"
+                      minWidth="130px"
+                    ></app-custom-select>
+                  </td>
+                  <td class="text-right">
+                    <div class="row-actions-group">
+                      @if (authService.hasPermission('task.manage') || authService.hasRole('admin')) {
+                        <button class="btn btn-secondary btn-xs" (click)="openEditModal(t)" title="Edit Task">
+                          <app-icon name="edit" [size]="12"></app-icon>
+                        </button>
+                        <button class="btn btn-danger btn-xs" (click)="openDeleteModal(t)" title="Delete Task">
+                          <app-icon name="trash" [size]="12"></app-icon>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pagination
+          [page]="page()"
+          [limit]="limit()"
+          [total]="total()"
+          [totalPages]="totalPages()"
+          (pageChange)="onPageChange($event)"
+          (limitChange)="onLimitChange($event)"
+        ></app-pagination>
+      </div>
+    }
+  }
+</div>
+
+<!-- Create Task Modal -->
+<app-modal
+  [isOpen]="isCreateModalOpen()"
+  title="Create & Assign Legal Task"
+  subtitle="Delegate legal research, drafting, court filings, or client meetings"
+  maxWidth="600px"
+  (close)="closeCreateModal()"
+>
+  <form [formGroup]="taskForm" class="task-form">
+    <div class="form-group">
+      <label class="form-label">Task Title *</label>
+      <input type="text" formControlName="title" class="form-control" placeholder="e.g. Draft Written Statement in Suit 412/2026" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Task Type *</label>
+        <select formControlName="taskType" class="form-control">
+          @for (type of taskTypes; track type) {
+            <option [value]="type">{{ type }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Priority</label>
+        <select formControlName="priority" class="form-control">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Due Date</label>
+        <input type="date" formControlName="dueDate" class="form-control" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Related Case Docket</label>
+      <app-multi-select
+        [options]="caseOptions()"
+        placeholder="Select related case..."
+        [singleSelect]="true"
+        formControlName="caseId"
+      ></app-multi-select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Assign Legal Team Members</label>
+      <app-multi-select
+        [options]="advocateOptions()"
+        placeholder="Assign associate advocates or clerks..."
+        formControlName="assignedUserIds"
+        [showAvatars]="true"
+      ></app-multi-select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Detailed Instructions</label>
+      <textarea formControlName="description" rows="3" class="form-control" placeholder="Provide instructions, case file references, legal issues to address..."></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitTask()">Assign Task</button>
+  </div>
+</app-modal>
+
+<!-- Edit Task Modal -->
+<app-modal
+  [isOpen]="isEditModalOpen()"
+  title="Edit Litigation Task"
+  subtitle="Update task title, deadline, priority, and legal type"
+  maxWidth="540px"
+  (close)="closeEditModal()"
+>
+  <form [formGroup]="editTaskForm" (ngSubmit)="submitEditTask()">
+    <div class="form-group">
+      <label class="form-label">Task Title / Deliverable *</label>
+      <input type="text" formControlName="title" class="form-control" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Task Type *</label>
+        <select formControlName="taskType" class="form-control">
+          @for (type of taskTypes; track type) {
+            <option [value]="type">{{ type }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Priority</label>
+        <select formControlName="priority" class="form-control">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Due Date</label>
+      <input type="date" formControlName="dueDate" class="form-control" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Instructions & Details</label>
+      <textarea formControlName="description" rows="3" class="form-control"></textarea>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeEditModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitEditTask()">Save Changes</button>
+  </div>
+</app-modal>
+
+<!-- Confirm Delete Task Modal -->
+<app-confirm-modal
+  [isOpen]="isDeleteModalOpen()"
+  title="Delete Litigation Task"
+  [message]="'Are you sure you want to delete task ' + (taskToDelete()?.title || '') + '?'"
+  confirmText="Delete Task"
+  [isDanger]="true"
+  [isLoading]="isDeleting()"
+  (confirm)="confirmDeleteTask()"
+  (cancel)="closeDeleteModal()"
+></app-confirm-modal>
+
+

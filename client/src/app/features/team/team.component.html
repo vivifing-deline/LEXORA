@@ -1,0 +1,440 @@
+<div class="team-page">
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">IDENTITY & ACCESS MANAGEMENT</div>
+      <h1 class="page-title">Chambers Team & RBAC Permissions</h1>
+      <p class="page-subtitle">Configure advocates, roles, and granular database-enforced permissions across cases and billing.</p>
+    </div>
+
+    <div class="header-actions">
+      <div class="view-toggle-box">
+        <button class="view-btn" [class.active]="activeTab() === 'users'" (click)="activeTab.set('users')">
+          <app-icon name="users" [size]="14"></app-icon>
+          <span>Team Directory</span>
+        </button>
+        <button class="view-btn" [class.active]="activeTab() === 'roles'" (click)="activeTab.set('roles')">
+          <app-icon name="shield" [size]="14"></app-icon>
+          <span>Legal Roles</span>
+        </button>
+        <button class="view-btn" [class.active]="activeTab() === 'matrix'" (click)="activeTab.set('matrix')">
+          <app-icon name="check-square" [size]="14"></app-icon>
+          <span>Permission Matrix</span>
+        </button>
+      </div>
+
+      @if (activeTab() === 'users') {
+        <button class="btn btn-primary btn-sm" (click)="openCreateUserModal()">
+          <app-icon name="plus" [size]="15"></app-icon>
+          <span>Add User</span>
+        </button>
+      }
+      @if (activeTab() === 'roles') {
+        <button class="btn btn-primary btn-sm" (click)="openCreateRoleModal()">
+          <app-icon name="plus" [size]="15"></app-icon>
+          <span>Create Role</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="table" [rows]="8"></app-loading-skeleton>
+  } @else {
+    <!-- ========================================== -->
+    <!-- TAB 1: USERS DIRECTORY -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'users') {
+      <div class="filter-bar card mb-4">
+        <div class="filter-row">
+          <div class="search-input-wrapper">
+            <app-icon name="search" [size]="16" color="var(--text-muted)"></app-icon>
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Search by name, email, or designation..."
+              [ngModel]="userSearch()"
+              (ngModelChange)="userSearch.set($event)"
+            />
+          </div>
+
+          <div class="filter-controls">
+            <app-custom-select
+              [options]="userStatusOptions"
+              [ngModel]="userStatusFilter()"
+              (valueChange)="userStatusFilter.set($event)"
+              placeholder="All Statuses"
+              variant="filter"
+              minWidth="155px"
+            ></app-custom-select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Advocate / Staff</th>
+                <th>Assigned Roles</th>
+                <th>Designation</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of filteredUsers(); track u.id) {
+                <tr>
+                  <td>
+                    <div class="user-inline-cell">
+                      <div class="user-avatar-mini">{{ u.firstName.charAt(0) }}{{ u.lastName.charAt(0) }}</div>
+                      <div>
+                        <div class="font-bold text-sm">{{ u.fullName }}</div>
+                        <div class="text-xs text-muted font-mono">{{ u.email }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="role-badges-list">
+                      @for (r of u.roles; track r.id || r) {
+                        <span class="badge badge-primary">{{ r.displayName || r.name || r }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td><span class="text-xs text-secondary font-medium">{{ u.designation || 'Chambers Staff' }}</span></td>
+                  <td><span class="text-xs text-muted">{{ u.department || 'Chambers' }}</span></td>
+                  <td>
+                    <span class="badge" [ngClass]="u.isActive ? 'badge-success' : 'badge-danger'">
+                      {{ u.isActive ? 'Active' : 'Deactivated' }}
+                    </span>
+                  </td>
+                  <td class="text-right">
+                    <div class="action-btn-group">
+                      <button class="icon-btn" title="Edit User" (click)="openEditUserModal(u)">
+                        <app-icon name="edit" [size]="15"></app-icon>
+                      </button>
+                      <button
+                        class="icon-btn"
+                        [title]="u.isActive ? 'Deactivate User' : 'Activate User'"
+                        [class.text-danger]="u.isActive"
+                        [class.text-success]="!u.isActive"
+                        (click)="toggleUserStatus(u)"
+                      >
+                        <app-icon [name]="u.isActive ? 'lock' : 'unlock'" [size]="15"></app-icon>
+                      </button>
+                      <button class="icon-btn" title="Reset Password" (click)="openResetPasswordModal(u)">
+                        <app-icon name="key" [size]="15"></app-icon>
+                      </button>
+                      <button class="icon-btn text-danger" title="Delete User" (click)="confirmDeleteUser(u)">
+                        <app-icon name="trash-2" [size]="15"></app-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6" class="text-center py-6 text-muted">No users found matching your filters.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pagination
+          [page]="page()"
+          [limit]="limit()"
+          [total]="total()"
+          [totalPages]="totalPages()"
+          (pageChange)="onPageChange($event)"
+          (limitChange)="onLimitChange($event)"
+        ></app-pagination>
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- TAB 2: ROLES MANAGEMENT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'roles') {
+      <div class="roles-grid">
+        @for (r of roles(); track r.id) {
+          <div class="card role-card">
+            <div class="role-card-header">
+              <div class="role-header-info">
+                <span class="role-badge">{{ r.displayName }}</span>
+                @if (r.name === 'Firm Admin') {
+                  <span class="badge badge-primary text-xs">System Core</span>
+                }
+              </div>
+              <span class="badge badge-neutral text-xs">{{ r.permissions?.length || 0 }} Privileges</span>
+            </div>
+            <p class="role-desc">{{ r.description || 'No description provided.' }}</p>
+            <div class="role-card-meta">
+              <span class="meta-item font-mono text-xs">{{ r.users?.length || r.userCount || 0 }} active user(s) attached</span>
+            </div>
+            <div class="role-card-actions">
+              <button class="btn btn-secondary btn-xs flex-1" (click)="switchToMatrixForRole(r)">
+                <app-icon name="check-square" [size]="13"></app-icon>
+                <span>Configure Matrix</span>
+              </button>
+              <button class="btn btn-secondary btn-xs" title="Edit Role" (click)="openEditRoleModal(r)">
+                <app-icon name="edit" [size]="13"></app-icon>
+              </button>
+              @if (r.name !== 'Firm Admin') {
+                <button class="btn btn-secondary btn-xs text-danger" title="Delete Role" (click)="confirmDeleteRole(r)">
+                  <app-icon name="trash-2" [size]="13"></app-icon>
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- ========================================== -->
+    <!-- TAB 3: INTERACTIVE PERMISSION MATRIX -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'matrix') {
+      <div class="matrix-container card">
+        <!-- Matrix Controls Bar -->
+        <div class="matrix-top-bar">
+          <div class="matrix-role-selector">
+            <label class="form-label mb-0 mr-2 text-sm">Target Role:</label>
+            <select
+              class="form-control select-control role-select-dropdown"
+              [ngModel]="selectedRoleId()"
+              (ngModelChange)="selectRoleForMatrix($event)"
+            >
+              @for (r of roles(); track r.id) {
+                <option [value]="r.id">{{ r.displayName }} ({{ r.name }})</option>
+              }
+            </select>
+            <span class="perm-counter-pill">
+              {{ matrixSelectedPermIds().size }} / {{ permissions().length }} Granted
+            </span>
+          </div>
+
+          <div class="matrix-search-box">
+            <app-icon name="search" [size]="15" color="var(--text-muted)"></app-icon>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              placeholder="Search permissions..."
+              [ngModel]="matrixSearch()"
+              (ngModelChange)="matrixSearch.set($event)"
+            />
+          </div>
+
+          <div class="matrix-action-buttons">
+            <button class="btn btn-secondary btn-sm" (click)="selectAllPerms()" [disabled]="selectedRole()?.name === 'Firm Admin'">
+              Select All
+            </button>
+            <button class="btn btn-secondary btn-sm" (click)="clearAllPerms()" [disabled]="selectedRole()?.name === 'Firm Admin'">
+              Clear All
+            </button>
+            <button class="btn btn-primary btn-sm" [disabled]="isMatrixSaving() || selectedRole()?.name === 'Firm Admin'" (click)="saveMatrix()">
+              @if (isMatrixSaving()) {
+                <span class="spinner-small mr-1"></span>
+              }
+              <span>Save Matrix Changes</span>
+            </button>
+          </div>
+        </div>
+
+        @if (selectedRole()?.name === 'Firm Admin') {
+          <div class="alert alert-info mb-4">
+            <app-icon name="info" [size]="16"></app-icon>
+            <span>The <strong>Firm Admin</strong> role automatically inherits all permissions across all modules. Permission matrix restrictions apply to advocates, associates, clerks, and custom roles.</span>
+          </div>
+        }
+
+        <!-- Modules Grid -->
+        <div class="matrix-modules-list">
+          @for (grp of groupedPermissions(); track grp.module) {
+            <div class="module-group-card">
+              <div class="module-group-header">
+                <div class="module-header-title">
+                  <span class="module-name">{{ grp.module }}</span>
+                  <span class="badge badge-neutral text-xs">{{ grp.permissions.length }} permissions</span>
+                </div>
+                <button
+                  class="text-btn text-xs"
+                  (click)="toggleModulePerms(grp.permissions)"
+                  [disabled]="selectedRole()?.name === 'Firm Admin'"
+                >
+                  Toggle Module
+                </button>
+              </div>
+
+              <div class="module-perms-grid">
+                @for (p of grp.permissions; track p.id) {
+                  <label
+                    class="perm-checkbox-item"
+                    [class.checked]="isPermChecked(p.id)"
+                    [class.disabled-admin]="selectedRole()?.name === 'Firm Admin'"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="isPermChecked(p.id)"
+                      (change)="togglePerm(p.id)"
+                      [disabled]="selectedRole()?.name === 'Firm Admin'"
+                    />
+                    <div class="perm-text-block">
+                      <span class="perm-code font-mono">{{ p.code }}</span>
+                      <span class="perm-desc">{{ p.description || p.action }}</span>
+                    </div>
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  }
+</div>
+
+<!-- ========================================== -->
+<!-- USER CREATE / EDIT MODAL -->
+<!-- ========================================== -->
+<app-modal
+  [isOpen]="isUserModalOpen()"
+  [title]="isEditUser() ? 'Edit Chambers User' : 'Register New Chambers User'"
+  [subtitle]="isEditUser() ? 'Update user roles and department' : 'Create new advocate or staff account with instant login'"
+  maxWidth="620px"
+  [showFooter]="true"
+  (close)="isUserModalOpen.set(false)"
+>
+  <form [formGroup]="userForm" (ngSubmit)="saveUser()">
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label required">First Name</label>
+        <input type="text" class="form-control" formControlName="firstName" placeholder="e.g. Mahnoor" />
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Last Name</label>
+        <input type="text" class="form-control" formControlName="lastName" placeholder="e.g. Rehman" />
+      </div>
+    </div>
+
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label required">Email Address</label>
+        <input type="email" class="form-control" formControlName="email" placeholder="advocate@lexora.demo" [readonly]="isEditUser()" />
+      </div>
+      @if (!isEditUser()) {
+        <div class="form-group">
+          <label class="form-label required">Initial Password</label>
+          <input type="password" class="form-control" formControlName="password" placeholder="At least 6 characters" />
+        </div>
+      }
+    </div>
+
+    <div class="form-grid-2">
+      <div class="form-group">
+        <label class="form-label">Professional Designation</label>
+        <input type="text" class="form-control" formControlName="designation" placeholder="e.g. Senior Litigator / Partner" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact Phone</label>
+        <input type="text" class="form-control" formControlName="phone" placeholder="+92 300 1234567" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Practice Department</label>
+      <select class="form-control select-control" formControlName="departmentId">
+        <option value="">-- No Department Assigned --</option>
+        @for (d of departments(); track d.id) {
+          <option [value]="d.id">{{ d.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label required">Assigned Roles</label>
+      <app-multi-select
+        [options]="roleOptions()"
+        formControlName="roleIds"
+        placeholder="Select user roles..."
+      ></app-multi-select>
+    </div>
+  </form>
+
+  <div slot="footer" class="modal-footer-actions">
+    <button class="btn btn-secondary" (click)="isUserModalOpen.set(false)">Cancel</button>
+    <button class="btn btn-primary" (click)="saveUser()">
+      {{ isEditUser() ? 'Save Changes' : 'Create User' }}
+    </button>
+  </div>
+</app-modal>
+
+<!-- ========================================== -->
+<!-- ROLE CREATE / EDIT MODAL -->
+<!-- ========================================== -->
+<app-modal
+  [isOpen]="isRoleModalOpen()"
+  [title]="isEditRole() ? 'Edit Legal Role' : 'Create Custom Legal Role'"
+  [subtitle]="'Define custom authorizations for advocates and staff'"
+  maxWidth="500px"
+  [showFooter]="true"
+  (close)="isRoleModalOpen.set(false)"
+>
+  <form [formGroup]="roleForm" (ngSubmit)="saveRole()">
+    <div class="form-group">
+      <label class="form-label required">Role Identifier (Slug)</label>
+      <input type="text" class="form-control" formControlName="name" placeholder="e.g. Corporate Associate" [readonly]="isEditRole() && roleForm.get('name')?.value === 'Firm Admin'" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label required">Display Title</label>
+      <input type="text" class="form-control" formControlName="displayName" placeholder="e.g. Senior Corporate Counsel" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description & Scope</label>
+      <textarea class="form-control" rows="3" formControlName="description" placeholder="Summarize role duties and authorities..."></textarea>
+    </div>
+  </form>
+
+  <div slot="footer" class="modal-footer-actions">
+    <button class="btn btn-secondary" (click)="isRoleModalOpen.set(false)">Cancel</button>
+    <button class="btn btn-primary" (click)="saveRole()">Save Role</button>
+  </div>
+</app-modal>
+
+<!-- ========================================== -->
+<!-- PASSWORD RESET MODAL -->
+<!-- ========================================== -->
+<app-modal
+  [isOpen]="isPasswordModalOpen()"
+  title="Reset User Password"
+  subtitle="Set a new password for this chambers account"
+  maxWidth="420px"
+  [showFooter]="true"
+  (close)="isPasswordModalOpen.set(false)"
+>
+  <form [formGroup]="passwordForm" (ngSubmit)="saveResetPassword()">
+    <div class="form-group">
+      <label class="form-label required">New Password</label>
+      <input type="password" class="form-control" formControlName="newPassword" placeholder="Min. 6 characters" />
+    </div>
+  </form>
+
+  <div slot="footer" class="modal-footer-actions">
+    <button class="btn btn-secondary" (click)="isPasswordModalOpen.set(false)">Cancel</button>
+    <button class="btn btn-primary" (click)="saveResetPassword()">Update Password</button>
+  </div>
+</app-modal>
+
+<!-- ========================================== -->
+<!-- CONFIRMATION MODAL -->
+<!-- ========================================== -->
+<app-confirm-modal
+  [isOpen]="confirmModal().isOpen"
+  [title]="confirmModal().title"
+  [message]="confirmModal().message"
+  [confirmText]="confirmModal().confirmText"
+  [isDanger]="confirmModal().isDanger"
+  (confirm)="confirmModal().action && confirmModal().action!()"
+  (cancel)="confirmModal().isOpen = false"
+></app-confirm-modal>

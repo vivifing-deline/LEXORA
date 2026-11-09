@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production build artifacts
+dist/
+client/dist/
+server/dist/
+.angular/
+client/.angular/
+
+# Environment and secrets (CRITICAL: Never commit real passwords/secrets)
+.env
+.env.local
+.env.*.local
+server/.env
+server/.env.demo
+server/.env.development
+server/.env.production
+!server/.env.example
+
+# File uploads and user documents
+storage/uploads/*
+!storage/uploads/.gitignore
+
+# SQLite databases & temp files
+*.db
+*.db-journal
+*.sqlite
+server/data/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS and Editor metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace

@@ -1,0 +1,142 @@
+<div class="login-wrapper">
+  <!-- Top Bar with Brand & Theme Toggle -->
+  <div class="login-header">
+    <div class="brand-badge">
+      <div class="logo-box">
+        <app-icon name="scale" [size]="20" color="#FFFFFF"></app-icon>
+      </div>
+      <div>
+        <span class="brand-title">LEXORA</span>
+        <span class="brand-sub">Legal Practice Management</span>
+      </div>
+    </div>
+
+    <button class="theme-btn" (click)="themeService.toggleTheme()">
+      <app-icon [name]="themeService.isDark() ? 'sun' : 'moon'" [size]="18"></app-icon>
+    </button>
+  </div>
+
+  <div class="login-main-container">
+    <!-- Left Column: Login Form -->
+    <div class="login-card-container">
+      <div class="login-card">
+        <div class="card-intro">
+          <h2 class="welcome-heading">Sign In to Chambers</h2>
+          <p class="welcome-sub">Enter your credentials to access legal matters, litigation diary, and case files.</p>
+        </div>
+
+        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+          <div class="form-group">
+            <label class="form-label">Professional Email</label>
+            <div class="input-with-icon">
+              <app-icon name="user" [size]="16" color="var(--text-muted)"></app-icon>
+              <input
+                type="email"
+                formControlName="email"
+                class="form-control"
+                placeholder="advocate@lexora.demo"
+              />
+            </div>
+            @if (loginForm.get('email')?.touched && loginForm.get('email')?.invalid) {
+              <div class="form-error">Please enter a valid email address</div>
+            }
+          </div>
+
+          <div class="form-group">
+            <div class="password-label-row">
+              <label class="form-label">Password</label>
+              <button type="button" class="forgot-link" (click)="openForgotPassword()">Forgot password?</button>
+            </div>
+            <div class="input-with-icon">
+              <app-icon name="shield" [size]="16" color="var(--text-muted)"></app-icon>
+              <input
+                [type]="showPassword() ? 'text' : 'password'"
+                formControlName="password"
+                class="form-control"
+                placeholder="••••••••"
+              />
+              <button type="button" class="visibility-toggle" (click)="togglePassword()">
+                <app-icon [name]="showPassword() ? 'eye' : 'eye'" [size]="16" color="var(--text-muted)"></app-icon>
+              </button>
+            </div>
+            @if (loginForm.get('password')?.touched && loginForm.get('password')?.invalid) {
+              <div class="form-error">Password is required</div>
+            }
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg submit-btn" [disabled]="isSubmitting()">
+            @if (isSubmitting()) {
+              <span>Authenticating...</span>
+            } @else {
+              <span>Sign In</span>
+              <app-icon name="chevron-right" [size]="16"></app-icon>
+            }
+          </button>
+        </form>
+
+        <div class="security-notice">
+          <app-icon name="shield" [size]="14" color="var(--success)"></app-icon>
+          <span>End-to-end encrypted · Role-based access control · SQLite</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Demo Accounts Quick Selector for Testing & CTO Demo -->
+    <div class="demo-accounts-panel">
+      <div class="demo-panel-header">
+        <span class="badge badge-primary">Demo & Testing Hub</span>
+        <h3 class="demo-heading">One-Click Role Switcher</h3>
+        <p class="demo-sub">Select any legal persona to test specific access rights and dashboard views instantly:</p>
+      </div>
+
+      <div class="demo-grid">
+        @for (acc of demoAccounts; track acc.email) {
+          <button class="demo-card" (click)="selectDemoAccount(acc.email)">
+            <div class="demo-card-top">
+              <span class="demo-role-badge">{{ acc.role }}</span>
+              <span class="demo-action-text">Login →</span>
+            </div>
+            <div class="demo-person-name">{{ acc.name }}</div>
+            <div class="demo-person-desc">{{ acc.desc }}</div>
+            <div class="demo-email-tag font-mono">{{ acc.email }}</div>
+          </button>
+        }
+      </div>
+
+      <div class="demo-footer-info">
+        <app-icon name="info" [size]="14" color="var(--primary)"></app-icon>
+        <span>Default password for all demo accounts is <strong>Demo@123</strong></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Password Reset Modal -->
+<app-modal
+  [isOpen]="isForgotModalOpen()"
+  title="Reset Your Password"
+  subtitle="Local demo password recovery process"
+  (close)="closeForgotPassword()"
+>
+  <div class="forgot-modal-body">
+    <p class="text-secondary text-sm">
+      Enter the email associated with your account. In this local PoC environment, your reset request is handled locally.
+    </p>
+    <div class="form-group mt-3">
+      <label class="form-label">Email Address</label>
+      <input
+        type="email"
+        class="form-control"
+        [value]="resetEmail()"
+        (input)="resetEmail.set($any($event.target).value)"
+        placeholder="advocate@lexora.demo"
+      />
+    </div>
+  </div>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeForgotPassword()">Cancel</button>
+    <button class="btn btn-primary" (click)="handlePasswordReset()">Submit Reset</button>
+  </div>
+</app-modal>
+

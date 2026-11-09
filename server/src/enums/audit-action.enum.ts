@@ -1,0 +1,11 @@
+export enum AuditAction {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  LOGIN = 'LOGIN',
+  LOGOUT = 'LOGOUT',
+  VIEW = 'VIEW',
+  DOWNLOAD = 'DOWNLOAD',
+  PERMISSION_CHANGE = 'PERMISSION_CHANGE'
+}
+

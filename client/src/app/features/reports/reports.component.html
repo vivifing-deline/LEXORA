@@ -1,0 +1,180 @@
+<div class="reports-page">
+  <div class="page-header no-print">
+    <div class="header-titles">
+      <div class="welcome-user-tag">PRACTICE ANALYTICS & AUDIT</div>
+      <h1 class="page-title">Executive Reports & Intelligence</h1>
+      <p class="page-subtitle">Exportable metrics on legal portfolio performance, team workload, and collections.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" (click)="printReport()">
+        <app-icon name="printer" [size]="14"></app-icon>
+        <span>Print Report</span>
+      </button>
+      <button class="btn btn-primary btn-sm" (click)="exportCsv()">
+        <app-icon name="download" [size]="14"></app-icon>
+        <span>Export CSV</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Report Category Selector -->
+  <div class="card filter-toolbar no-print">
+    <div class="report-tabs">
+      <button class="tab-pill" [class.active]="reportType() === 'cases'" (click)="setReportType('cases')">
+        <app-icon name="briefcase" [size]="14"></app-icon>
+        <span>Active Cases & Stages</span>
+      </button>
+      <button class="tab-pill" [class.active]="reportType() === 'finance'" (click)="setReportType('finance')">
+        <app-icon name="credit-card" [size]="14"></app-icon>
+        <span>Revenue & Receivables</span>
+      </button>
+      <button class="tab-pill" [class.active]="reportType() === 'workload'" (click)="setReportType('workload')">
+        <app-icon name="users" [size]="14"></app-icon>
+        <span>Advocate Workload</span>
+      </button>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="table" [rows]="8"></app-loading-skeleton>
+  } @else if (reportData()) {
+    <!-- Cases Report -->
+    @if (reportType() === 'cases') {
+      <div class="card table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Case Ref</th>
+                <th>Case Title</th>
+                <th>Client</th>
+                <th>Practice Area</th>
+                <th>Court</th>
+                <th>Current Stage</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of paginatedRows(); track c.id) {
+                <tr>
+                  <td><span class="font-mono font-bold text-primary">{{ c.internalReference }}</span></td>
+                  <td><span class="font-bold">{{ c.title }}</span></td>
+                  <td>{{ c.client?.name }}</td>
+                  <td><span class="badge badge-primary">{{ c.practiceArea?.name }}</span></td>
+                  <td>{{ c.court?.name || c.jurisdiction }}</td>
+                  <td><span class="stage-tag">{{ c.currentStage }}</span></td>
+                  <td><span class="badge badge-success">{{ c.status }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pagination
+          [page]="page()"
+          [limit]="limit()"
+          [total]="total()"
+          [totalPages]="totalPages()"
+          (pageChange)="onPageChange($event)"
+          (limitChange)="onLimitChange($event)"
+        ></app-pagination>
+      </div>
+    }
+
+    <!-- Finance Report -->
+    @if (reportType() === 'finance') {
+      <div class="finance-report-layout">
+        <div class="kpi-row-3">
+          <div class="card fin-summary-card">
+            <span class="f-label">Total Billed Fees</span>
+            <span class="f-val">{{ formatCurrency(reportData().summary?.totalBilled) }}</span>
+          </div>
+          <div class="card fin-summary-card">
+            <span class="f-label">Realized Collections</span>
+            <span class="f-val text-success">{{ formatCurrency(reportData().summary?.totalCollected) }}</span>
+          </div>
+          <div class="card fin-summary-card">
+            <span class="f-label">Outstanding Receivables</span>
+            <span class="f-val text-danger">{{ formatCurrency(reportData().summary?.outstanding) }}</span>
+          </div>
+        </div>
+
+        <div class="card table-card mt-3">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Invoice #</th>
+                  <th>Client</th>
+                  <th>Total Billed</th>
+                  <th>Amount Paid</th>
+                  <th>Balance Due</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (inv of paginatedRows(); track inv.id) {
+                  <tr>
+                    <td><span class="font-mono font-bold">{{ inv.invoiceNumber }}</span></td>
+                    <td>{{ inv.client?.name }}</td>
+                    <td>{{ formatCurrency(inv.totalAmount) }}</td>
+                    <td class="text-success">{{ formatCurrency(inv.amountPaid) }}</td>
+                    <td class="text-danger">{{ formatCurrency(inv.balanceDue) }}</td>
+                    <td><span class="badge badge-primary">{{ inv.status }}</span></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <app-pagination
+            [page]="page()"
+            [limit]="limit()"
+            [total]="total()"
+            [totalPages]="totalPages()"
+            (pageChange)="onPageChange($event)"
+            (limitChange)="onLimitChange($event)"
+          ></app-pagination>
+        </div>
+      </div>
+    }
+
+    <!-- Workload Report -->
+    @if (reportType() === 'workload') {
+      <div class="card table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Advocate / Staff</th>
+                <th>Designation</th>
+                <th>Active Cases Assigned</th>
+                <th>Pending Tasks</th>
+                <th>Upcoming Court Hearings</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (w of paginatedRows(); track w.id) {
+                <tr>
+                  <td><span class="font-bold">{{ w.name }}</span></td>
+                  <td><span class="text-xs text-muted">{{ w.designation || 'Staff Member' }}</span></td>
+                  <td><span class="badge badge-primary">{{ w.activeCases }} Cases</span></td>
+                  <td><span class="badge badge-warning">{{ w.pendingTasks }} Tasks</span></td>
+                  <td><span class="badge badge-neutral">{{ w.upcomingHearings }} Hearings</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <app-pagination
+          [page]="page()"
+          [limit]="limit()"
+          [total]="total()"
+          [totalPages]="totalPages()"
+          (pageChange)="onPageChange($event)"
+          (limitChange)="onLimitChange($event)"
+        ></app-pagination>
+      </div>
+    }
+  }
+</div>
+

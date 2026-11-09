@@ -1,0 +1,249 @@
+<div class="clients-page">
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="welcome-user-tag">LEGAL CRM</div>
+      <h1 class="page-title">Client Directory & Accounts</h1>
+      <p class="page-subtitle">Manage corporate and individual clients, contacts, retained agreements, and case dockets.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" (click)="loadClients()">
+        <app-icon name="clock" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      @if (authService.hasPermission('client.create')) {
+        <button class="btn btn-primary btn-sm" (click)="openCreateModal()">
+          <app-icon name="plus" [size]="14"></app-icon>
+          <span>Onboard New Client</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Search & Filter Bar -->
+  <div class="card filter-toolbar">
+    <div class="search-field">
+      <app-icon name="search" [size]="16" color="var(--text-muted)"></app-icon>
+      <input
+        type="text"
+        placeholder="Search clients by name, reference code, organization, phone..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+        (keydown.enter)="loadClients()"
+      />
+    </div>
+
+    <div class="filter-controls">
+      <app-custom-select
+        [options]="typeOptions"
+        [ngModel]="typeFilter()"
+        (valueChange)="typeFilter.set($event); loadClients()"
+        placeholder="All Types"
+        variant="filter"
+        minWidth="150px"
+      ></app-custom-select>
+      <button class="btn btn-secondary btn-sm" (click)="searchQuery.set(''); typeFilter.set(''); loadClients()">
+        Reset
+      </button>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <app-loading-skeleton type="table" [rows]="6"></app-loading-skeleton>
+  } @else if (clients().length === 0) {
+    <app-empty-state
+      icon="users"
+      title="No clients found"
+      description="No clients match your filter criteria. Click below to onboard a new client."
+      actionText="Onboard New Client"
+      (action)="openCreateModal()"
+    ></app-empty-state>
+  } @else {
+    <div class="card table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Client Reference</th>
+              <th>Client Name / Company</th>
+              <th>Type</th>
+              <th>Jurisdiction</th>
+              <th>Active Cases</th>
+              <th>Invoices</th>
+              <th>Supervising Counsel</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of clients(); track c.id) {
+              <tr class="client-row" [routerLink]="['/clients', c.id]">
+                <td>
+                  <span class="ref-badge font-mono">{{ c.clientReference }}</span>
+                </td>
+                <td>
+                  <div class="client-name-cell">{{ c.name }}</div>
+                  @if (c.organization) {
+                    <div class="client-org-sub">{{ c.organization }}</div>
+                  }
+                  <div class="client-contact-sub text-xs text-muted">{{ c.phone || c.email }}</div>
+                </td>
+                <td>
+                  <span class="badge" [ngClass]="c.type === 'corporate' ? 'badge-primary' : 'badge-neutral'">
+                    {{ c.type }}
+                  </span>
+                </td>
+                <td>
+                  <span>{{ c.city }}, {{ c.jurisdiction }}</span>
+                </td>
+                <td>
+                  <span class="count-tag">{{ c._count?.cases || 0 }} Matters</span>
+                </td>
+                <td>
+                  <span class="count-tag">{{ c._count?.invoices || 0 }} Invoices</span>
+                </td>
+                <td>
+                  @if (c.assignedAdvocate) {
+                    <div class="advocate-inline">
+                      <span class="adv-dot"></span>
+                      <span>{{ c.assignedAdvocate.firstName }} {{ c.assignedAdvocate.lastName }}</span>
+                    </div>
+                  } @else {
+                    <span class="text-muted text-xs">Unassigned</span>
+                  }
+                </td>
+                <td class="text-right actions-cell" (click)="$event.stopPropagation()">
+                  <div class="row-actions-group">
+                    <a [routerLink]="['/clients', c.id]" class="btn btn-secondary btn-sm action-btn" title="View Profile">
+                      <span>View</span>
+                      <app-icon name="chevron-right" [size]="13"></app-icon>
+                    </a>
+                    <button class="btn btn-secondary btn-sm action-icon-btn" title="Edit Client" (click)="openEditModal(c)">
+                      <app-icon name="edit" [size]="14"></app-icon>
+                    </button>
+                    <button class="btn btn-danger btn-sm action-icon-btn" title="Delete Client" (click)="confirmDeleteClient(c)">
+                      <app-icon name="trash-2" [size]="14"></app-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-pagination
+        [page]="page()"
+        [limit]="limit()"
+        [total]="total()"
+        [totalPages]="totalPages()"
+        (pageChange)="onPageChange($event)"
+        (limitChange)="onLimitChange($event)"
+      ></app-pagination>
+    </div>
+  }
+</div>
+
+<!-- Onboard Client Modal -->
+<app-modal
+  [isOpen]="isCreateModalOpen()"
+  title="Onboard New Legal Client"
+  subtitle="Register client identity, corporate contacts, and assigned partner"
+  maxWidth="680px"
+  (close)="closeCreateModal()"
+>
+  <form [formGroup]="clientForm" class="client-modal-form">
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Client Type *</label>
+        <select formControlName="type" class="form-control">
+          <option value="corporate">Corporate Organization</option>
+          <option value="individual">Individual Private Client</option>
+        </select>
+      </div>
+
+      <div class="form-group flex-2">
+        <label class="form-label">Client / Legal Entity Name *</label>
+        <input type="text" formControlName="name" class="form-control" placeholder="e.g. Indus Retailers Pvt Ltd" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Parent Conglomerate / Group</label>
+        <input type="text" formControlName="organization" class="form-control" placeholder="e.g. Indus Group" />
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">NTN / CNIC / Passport #</label>
+        <input type="text" formControlName="nationalId" class="form-control font-mono" placeholder="Tax / National ID" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">Official Email</label>
+        <input type="email" formControlName="email" class="form-control" placeholder="legal@company.com" />
+      </div>
+
+      <div class="form-group flex-1">
+        <label class="form-label">Phone Contact</label>
+        <input type="text" formControlName="phone" class="form-control" placeholder="+92 21 3456 7890" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label class="form-label">City</label>
+        <input type="text" formControlName="city" class="form-control" placeholder="Karachi" />
+      </div>
+      <div class="form-group flex-1">
+        <label class="form-label">Jurisdiction</label>
+        <input type="text" formControlName="jurisdiction" class="form-control" placeholder="Sindh" />
+      </div>
+    </div>
+
+    <!-- Supervising Advocate -->
+    <div class="form-group">
+      <label class="form-label">Supervising Senior Partner / Advocate</label>
+      <app-multi-select
+        [options]="advocateOptions()"
+        placeholder="Assign lead partner..."
+        [singleSelect]="true"
+        formControlName="assignedAdvocateId"
+        [showAvatars]="true"
+      ></app-multi-select>
+    </div>
+
+    <!-- Corporate Contact Section -->
+    <div class="contact-section-box">
+      <div class="contact-box-title">PRIMARY CONTACT PERSON (OPTIONAL)</div>
+      <div class="form-row">
+        <div class="form-group flex-1">
+          <label class="form-label">Contact Name</label>
+          <input type="text" formControlName="contactName" class="form-control" placeholder="e.g. Taimoor Ahmed" />
+        </div>
+        <div class="form-group flex-1">
+          <label class="form-label">Designation</label>
+          <input type="text" formControlName="contactDesignation" class="form-control" placeholder="General Counsel / Director" />
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div modal-actions>
+    <button class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
+    <button class="btn btn-primary" (click)="submitClient()">Register Client</button>
+  </div>
+</app-modal>
+
+<!-- Confirm Action Modal -->
+<app-confirm-modal
+  [isOpen]="confirmModal().isOpen"
+  [title]="confirmModal().title"
+  [message]="confirmModal().message"
+  [confirmText]="confirmModal().confirmText"
+  [isDanger]="confirmModal().isDanger"
+  (confirm)="confirmModal().action ? confirmModal().action!() : null"
+  (cancel)="closeConfirmModal()"
+></app-confirm-modal>
+
+
