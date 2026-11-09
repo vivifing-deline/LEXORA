@@ -14,8 +14,15 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // Middleware
+const allowedOrigins = (config.corsOrigin || '').split(',').map(o => o.trim()).filter(Boolean);
 app.use(cors({
-  origin: [config.corsOrigin, 'http://localhost:4200', 'http://127.0.0.1:4200'],
+  origin: (origin, callback) => {
+    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('vercel.app') || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   credentials: true
 }));
 
