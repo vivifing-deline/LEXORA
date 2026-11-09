@@ -6,13 +6,10 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache openssl libc6-compat
 
-# Install dependencies
+# Install dependencies and Prisma schema
 COPY package*.json ./
-RUN npm ci
-
-# Copy Prisma schema and generate client
 COPY prisma ./prisma/
-RUN npx prisma generate
+RUN npm ci
 
 # Copy application source and build TypeScript
 COPY tsconfig.json ./
@@ -29,12 +26,9 @@ RUN apk add --no-cache openssl libc6-compat
 # Set production environment
 ENV NODE_ENV=production
 
-# Copy built artifacts and dependencies
+# Copy dependencies, schema, and compiled artifacts directly from build stage
 COPY package*.json ./
-RUN npm ci --only=production
-
-COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/dist ./dist
 
@@ -43,5 +37,5 @@ RUN mkdir -p /app/storage/uploads
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "npx prisma db push && node dist/app.js"]
+CMD ["sh", "-c", "npx prisma db push --schema=prisma/schema.prisma && node dist/app.js"]
 
