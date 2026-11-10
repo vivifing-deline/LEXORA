@@ -7,10 +7,10 @@
       } @else {
         @if (singleSelect) {
           <div class="single-selection-label">
-            @if (showAvatars && selectedOptions()[0].avatarText) {
-              <span class="mini-avatar">{{ selectedOptions()[0].avatarText }}</span>
+            @if (showAvatars && selectedOptions()[0]?.avatarText) {
+              <span class="mini-avatar">{{ selectedOptions()[0]?.avatarText }}</span>
             }
-            <span>{{ selectedOptions()[0][labelKey] || selectedOptions()[0].label }}</span>
+            <span>{{ selectedOptions()[0]?.[labelKey] || selectedOptions()[0]?.label || '' }}</span>
           </div>
         } @else {
           @for (item of selectedOptions(); track item[valueKey] || item.value) {

@@ -13,10 +13,12 @@ import { MultiSelectComponent, SelectOption } from '../../shared/components/mult
 import { CustomSelectComponent, CustomSelectOption } from '../../shared/components/custom-select/custom-select.component';
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton/loading-skeleton.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SubscriptionManagerService } from '../../core/services/subscription-manager.service';
 
 @Component({
   selector: 'app-tasks',
   standalone: true,
+  providers: [SubscriptionManagerService],
   imports: [
     CommonModule,
     RouterModule,
@@ -38,6 +40,7 @@ export class TasksComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
+  private readonly subManager = inject(SubscriptionManagerService);
 
   readonly isLoading = signal<boolean>(true);
   readonly page = signal<number>(1);
@@ -107,7 +110,7 @@ export class TasksComponent implements OnInit {
       page: this.page(),
       limit: this.viewMode() === 'list' ? this.limit() : 100
     };
-    this.api.get<any>(API_ENDPOINTS.TASKS.BASE, params).subscribe({
+    this.api.get<any>(API_ENDPOINTS.TASKS.BASE, params).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.tasks.set(res.data || []);
         if (res.meta) {
@@ -209,23 +212,26 @@ export class TasksComponent implements OnInit {
   }
 
   loadDropdowns(): void {
-    this.api.get<any>(API_ENDPOINTS.CASES.BASE, { limit: 50 }).subscribe({
+    this.api.get<any>(API_ENDPOINTS.CASES.BASE, { limit: 50 }).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.caseOptions.set((res.data || []).map((c: any) => ({
-          label: `${c.internalReference}: ${c.title}`,
+          label: `${c.internalReference || ''}: ${c.title || ''}`,
           value: c.id
         })));
       }
     });
 
-    this.api.get<any>(API_ENDPOINTS.AUTH.USERS).subscribe({
+    this.api.get<any>(API_ENDPOINTS.AUTH.USERS).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
-        this.advocateOptions.set((res.data || []).map((u: any) => ({
-          label: u.fullName,
-          value: u.id,
-          description: u.designation,
-          avatarText: u.firstName.charAt(0)
-        })));
+        this.advocateOptions.set((res.data || []).map((u: any) => {
+          const fullName = (u.fullName || `${u.firstName || ''} ${u.lastName || ''}`).trim() || u.email || 'Advocate';
+          return {
+            label: fullName,
+            value: u.id,
+            description: u.designation || (u.roles && u.roles.length > 0 ? u.roles.join(', ') : 'Advocate'),
+            avatarText: (u.firstName || fullName || 'A').charAt(0).toUpperCase()
+          };
+        }));
       }
     });
   }

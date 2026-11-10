@@ -398,9 +398,9 @@ export class CustomSelectComponent implements ControlValueAccessor {
   }
 
   readonly filteredOptions = computed(() => {
-    const q = this.searchQuery().toLowerCase().trim();
+    const q = (this.searchQuery() || '').toLowerCase().trim();
     if (!q) return this.options;
-    return this.options.filter(o => o.label.toLowerCase().includes(q));
+    return this.options.filter(o => (o && o.label ? String(o.label).toLowerCase().includes(q) : false));
   });
 
   readonly selectedOption = computed(() => {

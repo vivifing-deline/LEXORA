@@ -10,10 +10,12 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton/loading-skeleton.component';
 import { ModalComponent } from '../../../shared/components/modal/modal.component';
 import { ConfirmModalComponent } from '../../../shared/components/confirm-modal/confirm-modal.component';
+import { SubscriptionManagerService } from '../../../core/services/subscription-manager.service';
 
 @Component({
   selector: 'app-client-detail',
   standalone: true,
+  providers: [SubscriptionManagerService],
   imports: [
     CommonModule,
     RouterModule,
@@ -34,6 +36,7 @@ export class ClientDetailComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
+  private readonly subManager = inject(SubscriptionManagerService);
 
   readonly clientId = signal<string>('');
   readonly client = signal<any>(null);
@@ -75,18 +78,20 @@ export class ClientDetailComponent implements OnInit {
   readonly contactToDelete = signal<any>(null);
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe(params => {
-      const id = params.get('id');
-      if (id) {
-        this.clientId.set(id);
-        this.loadClient();
-      }
-    });
+    this.subManager.add(
+      this.route.paramMap.subscribe(params => {
+        const id = params.get('id');
+        if (id) {
+          this.clientId.set(id);
+          this.loadClient();
+        }
+      })
+    );
   }
 
   loadClient(): void {
     this.isLoading.set(true);
-    this.api.get<any>(API_ENDPOINTS.CLIENTS.BY_ID(this.clientId())).subscribe({
+    this.api.get<any>(API_ENDPOINTS.CLIENTS.BY_ID(this.clientId())).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.client.set(res.data);
         this.isLoading.set(false);

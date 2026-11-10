@@ -14,10 +14,12 @@ import { CustomSelectComponent, CustomSelectOption } from '../../shared/componen
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton/loading-skeleton.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SubscriptionManagerService } from '../../core/services/subscription-manager.service';
 
 @Component({
   selector: 'app-cases',
   standalone: true,
+  providers: [SubscriptionManagerService],
   imports: [
     CommonModule,
     RouterModule,
@@ -42,6 +44,7 @@ export class CasesComponent implements OnInit {
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly subManager = inject(SubscriptionManagerService);
 
   readonly isLoading = signal<boolean>(true);
   readonly page = signal<number>(1);
@@ -148,14 +151,16 @@ export class CasesComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.route.queryParams.subscribe(params => {
-      if (params['q']) this.searchQuery.set(params['q']);
-      if (params['status']) this.statusFilter.set(params['status']);
-      if (params['stage']) this.stageFilter.set(params['stage']);
-      if (params['priority']) this.priorityFilter.set(params['priority']);
-      if (params['openCreate']) this.openCreateModal();
-      this.loadCases();
-    });
+    this.subManager.add(
+      this.route.queryParams.subscribe(params => {
+        if (params['q']) this.searchQuery.set(params['q']);
+        if (params['status']) this.statusFilter.set(params['status']);
+        if (params['stage']) this.stageFilter.set(params['stage']);
+        if (params['priority']) this.priorityFilter.set(params['priority']);
+        if (params['openCreate']) this.openCreateModal();
+        this.loadCases();
+      })
+    );
 
     this.loadDropdownData();
   }
@@ -171,7 +176,7 @@ export class CasesComponent implements OnInit {
     if (this.priorityFilter()) params['priority'] = this.priorityFilter();
     if (this.stageFilter()) params['stage'] = this.stageFilter();
 
-    this.api.get<any>(API_ENDPOINTS.CASES.BASE, params).subscribe({
+    this.api.get<any>(API_ENDPOINTS.CASES.BASE, params).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.cases.set(res.data || []);
         if (res.meta) {
@@ -213,20 +218,20 @@ export class CasesComponent implements OnInit {
 
   loadDropdownData(): void {
     // Clients
-    this.api.get<any>(API_ENDPOINTS.CLIENTS.BASE, { limit: 100 }).subscribe({
+    this.api.get<any>(API_ENDPOINTS.CLIENTS.BASE, { limit: 100 }).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         const opts: SelectOption[] = (res.data || []).map((c: any) => ({
-          label: `${c.name} (${c.clientReference})`,
+          label: `${c.name} (${c.clientReference || ''})`,
           value: c.id,
           description: c.organization || c.type,
-          avatarText: c.name.charAt(0).toUpperCase()
+          avatarText: (c.name || 'C').charAt(0).toUpperCase()
         }));
         this.clientOptions.set(opts);
       }
     });
 
     // Courts & Settings
-    this.api.get<any>(API_ENDPOINTS.SYSTEM.SETTINGS).subscribe({
+    this.api.get<any>(API_ENDPOINTS.SYSTEM.SETTINGS).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         if (res.data?.practiceAreas) {
           this.practiceAreaOptions.set(
@@ -240,7 +245,7 @@ export class CasesComponent implements OnInit {
         if (res.data?.courts) {
           this.courtOptions.set(
             res.data.courts.map((c: any) => ({
-              label: `${c.name} (${c.city})`,
+              label: `${c.name} (${c.city || ''})`,
               value: c.id,
               description: c.type
             }))
@@ -250,15 +255,19 @@ export class CasesComponent implements OnInit {
     });
 
     // Advocates
-    this.api.get<any>(API_ENDPOINTS.AUTH.USERS).subscribe({
+    this.api.get<any>(API_ENDPOINTS.AUTH.USERS).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
-        const advocates = (res.data || []).map((u: any) => ({
-          label: `${u.fullName}`,
-          value: u.id,
-          description: u.designation || u.roles.join(', '),
-          avatarText: u.firstName.charAt(0),
-          badge: u.roles[0]
-        }));
+        const advocates = (res.data || []).map((u: any) => {
+          const roles = u.roles || (u.userRoles || []).map((ur: any) => ur.role?.name || ur.role || ur).filter(Boolean);
+          const fullName = (u.fullName || `${u.firstName || ''} ${u.lastName || ''}`).trim() || u.email || 'Advocate';
+          return {
+            label: fullName,
+            value: u.id,
+            description: u.designation || (roles.length > 0 ? roles.join(', ') : 'Advocate'),
+            avatarText: (u.firstName || fullName || 'A').charAt(0).toUpperCase(),
+            badge: roles[0] || u.designation || 'Advocate'
+          };
+        });
         this.advocateOptions.set(advocates);
       }
     });

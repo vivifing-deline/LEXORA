@@ -11,10 +11,12 @@ import { LoadingSkeletonComponent } from '../../shared/components/loading-skelet
 import { MultiSelectComponent, SelectOption } from '../../shared/components/multi-select/multi-select.component';
 import { CustomSelectComponent, CustomSelectOption } from '../../shared/components/custom-select/custom-select.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SubscriptionManagerService } from '../../core/services/subscription-manager.service';
 
 @Component({
   selector: 'app-team',
   standalone: true,
+  providers: [SubscriptionManagerService],
   imports: [
     CommonModule,
     FormsModule,
@@ -34,6 +36,7 @@ export class TeamComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly toastService = inject(ToastService);
   private readonly fb = inject(FormBuilder);
+  private readonly subManager = inject(SubscriptionManagerService);
 
   readonly isLoading = signal<boolean>(true);
   readonly page = signal<number>(1);
@@ -101,14 +104,15 @@ export class TeamComponent implements OnInit {
   });
 
   readonly filteredUsers = computed(() => {
-    const q = this.userSearch().toLowerCase().trim();
+    const q = (this.userSearch() || '').toLowerCase().trim();
     const status = this.userStatusFilter();
 
     return this.users().filter(u => {
+      const fullName = (u.fullName || `${u.firstName || ''} ${u.lastName || ''}`).trim();
       const matchQ = !q ||
-        u.fullName.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        (u.designation && u.designation.toLowerCase().includes(q));
+        fullName.toLowerCase().includes(q) ||
+        (u.email ? u.email.toLowerCase().includes(q) : false) ||
+        (u.designation ? u.designation.toLowerCase().includes(q) : false);
 
       const matchStatus = status === 'all' ||
         (status === 'active' && u.isActive) ||
@@ -124,20 +128,21 @@ export class TeamComponent implements OnInit {
   });
 
   readonly groupedPermissions = computed(() => {
-    const q = this.matrixSearch().toLowerCase().trim();
+    const q = (this.matrixSearch() || '').toLowerCase().trim();
     const all = this.permissions();
     const filtered = !q ? all : all.filter(p =>
-      p.code.toLowerCase().includes(q) ||
-      (p.description && p.description.toLowerCase().includes(q)) ||
-      p.module.toLowerCase().includes(q)
+      (p.code ? p.code.toLowerCase().includes(q) : false) ||
+      (p.description ? p.description.toLowerCase().includes(q) : false) ||
+      (p.module ? p.module.toLowerCase().includes(q) : false)
     );
 
     const groups: { [key: string]: any[] } = {};
     for (const p of filtered) {
-      if (!groups[p.module]) {
-        groups[p.module] = [];
+      const moduleKey = p.module || 'General';
+      if (!groups[moduleKey]) {
+        groups[moduleKey] = [];
       }
-      groups[p.module].push(p);
+      groups[moduleKey].push(p);
     }
 
     return Object.keys(groups).sort().map(module => ({
@@ -178,16 +183,22 @@ export class TeamComponent implements OnInit {
   loadTeamData(): void {
     this.isLoading.set(true);
 
-    this.api.get<any>(API_ENDPOINTS.AUTH.USERS, { page: this.page(), limit: this.limit() }).subscribe({
+    this.api.get<any>(API_ENDPOINTS.AUTH.USERS, { page: this.page(), limit: this.limit() }).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
-        this.users.set(res.data || []);
+        const rawUsers = res.data || [];
+        const users = rawUsers.map((u: any) => ({
+          ...u,
+          fullName: (u.fullName || `${u.firstName || ''} ${u.lastName || ''}`).trim() || u.email || 'User',
+          roles: (u.roles || (u.userRoles || []).map((ur: any) => ur.role?.name || ur.role || ur)).filter(Boolean)
+        }));
+        this.users.set(users);
         if (res.meta) {
           this.page.set(res.meta.page);
           this.limit.set(res.meta.limit);
           this.total.set(res.meta.total);
           this.totalPages.set(res.meta.totalPages);
         } else {
-          this.total.set((res.data || []).length);
+          this.total.set(users.length);
           this.totalPages.set(1);
         }
         this.isLoading.set(false);
@@ -195,7 +206,7 @@ export class TeamComponent implements OnInit {
       error: () => this.isLoading.set(false)
     });
 
-    this.api.get<any>(API_ENDPOINTS.AUTH.ROLES).subscribe({
+    this.api.get<any>(API_ENDPOINTS.AUTH.ROLES).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         const roles = res.data || [];
         this.roles.set(roles);
@@ -205,13 +216,13 @@ export class TeamComponent implements OnInit {
       }
     });
 
-    this.api.get<any>(API_ENDPOINTS.AUTH.PERMISSIONS).subscribe({
+    this.api.get<any>(API_ENDPOINTS.AUTH.PERMISSIONS).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.permissions.set(res.data?.list || res.data || []);
       }
     });
 
-    this.api.get<any>(API_ENDPOINTS.SYSTEM.DEPARTMENTS).subscribe({
+    this.api.get<any>(API_ENDPOINTS.SYSTEM.DEPARTMENTS).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.departments.set(res.data || []);
       }

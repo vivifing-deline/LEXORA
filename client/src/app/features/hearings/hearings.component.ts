@@ -13,10 +13,12 @@ import { CustomSelectComponent, CustomSelectOption } from '../../shared/componen
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton/loading-skeleton.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SubscriptionManagerService } from '../../core/services/subscription-manager.service';
 
 @Component({
   selector: 'app-hearings',
   standalone: true,
+  providers: [SubscriptionManagerService],
   imports: [
     CommonModule,
     RouterModule,
@@ -38,6 +40,7 @@ export class HearingsComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
+  private readonly subManager = inject(SubscriptionManagerService);
 
   readonly isLoading = signal<boolean>(true);
   readonly page = signal<number>(1);
@@ -115,7 +118,7 @@ export class HearingsComponent implements OnInit {
     };
     if (this.statusFilter()) params['status'] = this.statusFilter();
 
-    this.api.get<any>(API_ENDPOINTS.HEARINGS.BASE, params).subscribe({
+    this.api.get<any>(API_ENDPOINTS.HEARINGS.BASE, params).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.hearings.set(res.data || []);
         if (res.meta) {
@@ -135,7 +138,7 @@ export class HearingsComponent implements OnInit {
     });
 
     // Check cause list conflicts
-    this.api.get<any>(API_ENDPOINTS.HEARINGS.CAUSE_LIST, { date: this.selectedDate() }).subscribe({
+    this.api.get<any>(API_ENDPOINTS.HEARINGS.CAUSE_LIST, { date: this.selectedDate() }).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.conflicts.set(res.data?.conflicts || []);
       }
@@ -154,14 +157,20 @@ export class HearingsComponent implements OnInit {
   }
 
   loadDropdownData(): void {
-    this.api.get<any>(API_ENDPOINTS.CASES.BASE, { limit: 100 }).subscribe({
+    this.api.get<any>(API_ENDPOINTS.CASES.BASE, { limit: 100 }).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => this.cases.set(res.data || [])
     });
-    this.api.get<any>(API_ENDPOINTS.SYSTEM.SETTINGS).subscribe({
+    this.api.get<any>(API_ENDPOINTS.SYSTEM.SETTINGS).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => this.courts.set(res.data?.courts || [])
     });
-    this.api.get<any>(API_ENDPOINTS.AUTH.USERS).subscribe({
-      next: (res) => this.advocates.set(res.data || [])
+    this.api.get<any>(API_ENDPOINTS.AUTH.USERS).pipe(this.subManager.untilDestroyed()).subscribe({
+      next: (res) => {
+        const advs = (res.data || []).map((u: any) => ({
+          ...u,
+          fullName: (u.fullName || `${u.firstName || ''} ${u.lastName || ''}`).trim() || u.email || 'Advocate'
+        }));
+        this.advocates.set(advs);
+      }
     });
   }
 

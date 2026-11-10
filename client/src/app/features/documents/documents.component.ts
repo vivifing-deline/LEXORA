@@ -157,7 +157,7 @@ export class DocumentsComponent implements OnInit {
   }
 
   onFileSelected(event: any): void {
-    const file = event.target.files[0];
+    const file = event.target?.files?.[0];
     if (file) {
       this.selectedFile = file;
       if (!this.uploadForm.value.title) {

@@ -38,7 +38,7 @@ export class AuthService {
   readonly token = signal<string | null>(localStorage.getItem(this.TOKEN_KEY));
   
   readonly isAuthenticated = computed(() => !!this.currentUser() && !!this.token());
-  readonly userRole = computed(() => this.currentUser()?.roles[0] || 'Guest');
+  readonly userRole = computed(() => this.currentUser()?.roles?.[0] || 'Guest');
 
   private getStoredUser(): UserProfile | null {
     const raw = localStorage.getItem(this.USER_KEY);
@@ -78,7 +78,7 @@ export class AuthService {
   hasPermission(code: string): boolean {
     const user = this.currentUser();
     if (!user) return false;
-    if (user.roles.includes('Firm Admin')) return true;
+    if (user.roles?.includes('Firm Admin')) return true;
     return user.permissions?.includes(code) ?? false;
   }
 

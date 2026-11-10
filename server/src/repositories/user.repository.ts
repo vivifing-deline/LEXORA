@@ -56,7 +56,13 @@ export class UserRepository extends BaseRepository<any> {
       }
     };
 
-    return this.findPaginated(where, { page, limit, sortBy, sortOrder }, include);
+    const result = await this.findPaginated(where, { page, limit, sortBy, sortOrder }, include);
+    const enriched = (result.data || []).map((u: any) => ({
+      ...u,
+      fullName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email,
+      roles: (u.userRoles || []).map((ur: any) => ur.role?.name).filter(Boolean)
+    }));
+    return { ...result, data: enriched };
   }
 }
 

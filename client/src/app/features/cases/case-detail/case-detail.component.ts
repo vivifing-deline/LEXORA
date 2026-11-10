@@ -11,10 +11,12 @@ import { ModalComponent } from '../../../shared/components/modal/modal.component
 import { ConfirmModalComponent } from '../../../shared/components/confirm-modal/confirm-modal.component';
 import { LoadingSkeletonComponent } from '../../../shared/components/loading-skeleton/loading-skeleton.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
+import { SubscriptionManagerService } from '../../../core/services/subscription-manager.service';
 
 @Component({
   selector: 'app-case-detail',
   standalone: true,
+  providers: [SubscriptionManagerService],
   imports: [
     CommonModule,
     RouterModule,
@@ -33,6 +35,7 @@ export class CaseDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
+  private readonly subManager = inject(SubscriptionManagerService);
   private readonly fb = inject(FormBuilder);
   readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
@@ -116,18 +119,20 @@ export class CaseDetailComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.route.paramMap.subscribe(params => {
-      const id = params.get('id');
-      if (id) {
-        this.caseId.set(id);
-        this.loadCaseDetails();
-      }
-    });
+    this.subManager.add(
+      this.route.paramMap.subscribe(params => {
+        const id = params.get('id');
+        if (id) {
+          this.caseId.set(id);
+          this.loadCaseDetails();
+        }
+      })
+    );
   }
 
   loadCaseDetails(): void {
     this.isLoading.set(true);
-    this.api.get<any>(API_ENDPOINTS.CASES.BY_ID(this.caseId())).subscribe({
+    this.api.get<any>(API_ENDPOINTS.CASES.BY_ID(this.caseId())).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.caseData.set(res.data);
         this.isLoading.set(false);

@@ -10,6 +10,7 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ModalComponent } from '../../shared/components/modal/modal.component';
 import { ToastContainerComponent } from '../../shared/components/toast/toast-container.component';
 import { FormsModule } from '@angular/forms';
+import { SubscriptionManagerService } from '../../core/services/subscription-manager.service';
 
 interface NavItem {
   label: string;
@@ -22,6 +23,7 @@ interface NavItem {
 @Component({
   selector: 'app-main-layout',
   standalone: true,
+  providers: [SubscriptionManagerService],
   imports: [
     CommonModule,
     RouterModule,
@@ -39,6 +41,7 @@ export class MainLayoutComponent {
   readonly configService = inject(ConfigService);
   readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly subManager = inject(SubscriptionManagerService);
 
   readonly isCollapsed = signal<boolean>(false);
   readonly isMobileOpen = signal<boolean>(false);
@@ -104,7 +107,10 @@ export class MainLayoutComponent {
 
   constructor() {
     this.router.events
-      .pipe(filter(event => event instanceof NavigationEnd))
+      .pipe(
+        filter(event => event instanceof NavigationEnd),
+        this.subManager.untilDestroyed()
+      )
       .subscribe((event: any) => {
         this.currentUrl.set(event.urlAfterRedirects || event.url);
         this.isMobileOpen.set(false);

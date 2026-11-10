@@ -14,10 +14,12 @@ import { CustomSelectComponent, CustomSelectOption } from '../../shared/componen
 import { LoadingSkeletonComponent } from '../../shared/components/loading-skeleton/loading-skeleton.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SubscriptionManagerService } from '../../core/services/subscription-manager.service';
 
 @Component({
   selector: 'app-clients',
   standalone: true,
+  providers: [SubscriptionManagerService],
   imports: [
     CommonModule,
     RouterModule,
@@ -40,6 +42,7 @@ export class ClientsComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
+  private readonly subManager = inject(SubscriptionManagerService);
 
   readonly isLoading = signal<boolean>(true);
   readonly page = signal<number>(1);
@@ -109,7 +112,7 @@ export class ClientsComponent implements OnInit {
     if (this.searchQuery()) params['search'] = this.searchQuery();
     if (this.typeFilter()) params['type'] = this.typeFilter();
 
-    this.api.get<any>(API_ENDPOINTS.CLIENTS.BASE, params).subscribe({
+    this.api.get<any>(API_ENDPOINTS.CLIENTS.BASE, params).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
         this.clients.set(res.data || []);
         if (res.meta) {
@@ -141,14 +144,17 @@ export class ClientsComponent implements OnInit {
   }
 
   loadAdvocates(): void {
-    this.api.get<any>(API_ENDPOINTS.AUTH.USERS).subscribe({
+    this.api.get<any>(API_ENDPOINTS.AUTH.USERS).pipe(this.subManager.untilDestroyed()).subscribe({
       next: (res) => {
-        const opts = (res.data || []).map((u: any) => ({
-          label: u.fullName,
-          value: u.id,
-          description: u.designation,
-          avatarText: u.firstName.charAt(0)
-        }));
+        const opts = (res.data || []).map((u: any) => {
+          const fullName = (u.fullName || `${u.firstName || ''} ${u.lastName || ''}`).trim() || u.email || 'Advocate';
+          return {
+            label: fullName,
+            value: u.id,
+            description: u.designation || (u.roles && u.roles.length > 0 ? u.roles.join(', ') : 'Advocate'),
+            avatarText: (u.firstName || fullName || 'A').charAt(0).toUpperCase()
+          };
+        });
         this.advocateOptions.set(opts);
       }
     });
