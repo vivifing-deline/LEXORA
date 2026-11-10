@@ -120,23 +120,68 @@
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
 
-  app-icon {
+  > .input-lead-icon,
+  > app-icon {
     position: absolute;
     left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
     pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
   }
 
   .form-control {
+    width: 100%;
     padding-left: 2.5rem;
+    padding-right: 2.75rem;
   }
-}
 
-.visibility-toggle {
-  position: absolute;
-  right: 0.85rem;
-  padding: 4px;
-  cursor: pointer;
+  .visibility-toggle {
+    position: absolute;
+    right: 0.65rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0.35rem;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    line-height: 0;
+    z-index: 3;
+    transition: color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-hover);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    app-icon {
+      position: static;
+      left: auto;
+      top: auto;
+      transform: none;
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
 }
 
 .form-error {

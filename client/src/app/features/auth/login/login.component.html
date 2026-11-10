@@ -29,12 +29,13 @@
           <div class="form-group">
             <label class="form-label">Professional Email</label>
             <div class="input-with-icon">
-              <app-icon name="user" [size]="16" color="var(--text-muted)"></app-icon>
+              <app-icon name="user" class="input-lead-icon" [size]="16" color="var(--text-muted)"></app-icon>
               <input
                 type="email"
                 formControlName="email"
                 class="form-control"
                 placeholder="counsel@chambers.com"
+                autocomplete="email"
               />
             </div>
             @if (loginForm.get('email')?.touched && loginForm.get('email')?.invalid) {
@@ -48,15 +49,22 @@
               <button type="button" class="forgot-link" (click)="openForgotPassword()">Forgot password?</button>
             </div>
             <div class="input-with-icon">
-              <app-icon name="shield" [size]="16" color="var(--text-muted)"></app-icon>
+              <app-icon name="shield" class="input-lead-icon" [size]="16" color="var(--text-muted)"></app-icon>
               <input
                 [type]="showPassword() ? 'text' : 'password'"
                 formControlName="password"
                 class="form-control"
                 placeholder="••••••••"
+                autocomplete="current-password"
               />
-              <button type="button" class="visibility-toggle" (click)="togglePassword()">
-                <app-icon [name]="showPassword() ? 'eye' : 'eye'" [size]="16" color="var(--text-muted)"></app-icon>
+              <button
+                type="button"
+                class="visibility-toggle"
+                (click)="togglePassword()"
+                [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                [title]="showPassword() ? 'Hide password' : 'Show password'"
+              >
+                <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="16" color="var(--text-muted)"></app-icon>
               </button>
             </div>
             @if (loginForm.get('password')?.touched && loginForm.get('password')?.invalid) {

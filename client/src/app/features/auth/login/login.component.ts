@@ -66,6 +66,13 @@ export class LoginComponent {
   onSubmit(): void {
     if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
+      const emailErrors = this.loginForm.get('email')?.errors;
+      const pwdErrors = this.loginForm.get('password')?.errors;
+      if (emailErrors?.['required'] || pwdErrors?.['required']) {
+        this.toastService.warning('Please enter both your email and password');
+      } else if (emailErrors?.['email']) {
+        this.toastService.warning('Please enter a valid email address');
+      }
       return;
     }
 
