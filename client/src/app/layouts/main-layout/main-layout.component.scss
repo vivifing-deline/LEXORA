@@ -258,6 +258,17 @@
   display: flex;
   align-items: center;
   gap: 0.85rem;
+
+  .action-btn {
+    color: #FFFFFF !important;
+    text-decoration: none;
+
+    &:hover,
+    &:focus {
+      color: #FFFFFF !important;
+      background-color: var(--primary-hover);
+    }
+  }
 }
 
 .header-search-btn {

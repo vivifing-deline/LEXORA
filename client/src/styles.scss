@@ -221,18 +221,26 @@ input, select, textarea {
   }
 }
 
-.btn-primary {
+.btn-primary,
+a.btn-primary {
   background: var(--primary);
-  color: #FFFFFF;
+  color: #FFFFFF !important;
   box-shadow: 0 1px 3px rgba(79, 70, 229, 0.3);
 
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled),
+  &:focus:not(:disabled) {
     background: var(--primary-hover);
+    color: #FFFFFF !important;
     box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
     transform: translateY(-1px);
   }
   &:active:not(:disabled) {
+    color: #FFFFFF !important;
     transform: translateY(0);
+  }
+
+  span, app-icon {
+    color: inherit;
   }
 }
 

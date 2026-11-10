@@ -99,10 +99,10 @@ export class MainLayoutComponent {
   });
 
   breadcrumbs = computed(() => {
-    const url = this.currentUrl();
-    const segments = url.split('/').filter(Boolean);
+    const pathOnly = (this.currentUrl() || '').split('?')[0].split('#')[0];
+    const segments = pathOnly.split('/').filter(Boolean);
     if (segments.length === 0) return ['Dashboard'];
-    return segments.map(s => s.charAt(0).toUpperCase() + s.slice(1).replace('-', ' '));
+    return segments.map(s => s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' '));
   });
 
   constructor() {

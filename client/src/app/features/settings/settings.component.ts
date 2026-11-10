@@ -49,6 +49,7 @@ export class SettingsComponent implements OnInit {
   readonly profileForm = this.fb.group({
     name: ['', Validators.required],
     legalName: [''],
+    registrationNo: [''],
     phone: [''],
     email: ['', [Validators.required, Validators.email]],
     address: [''],
@@ -69,6 +70,7 @@ export class SettingsComponent implements OnInit {
     city: ['Karachi', Validators.required],
     jurisdiction: ['Sindh', Validators.required],
     courtroomCount: [1, Validators.min(1)],
+    roomNumber: [''],
     notes: ['']
   });
 
@@ -77,6 +79,7 @@ export class SettingsComponent implements OnInit {
     name: ['', Validators.required],
     designation: ['Justice', Validators.required],
     courtId: ['', Validators.required],
+    courtroom: [''],
     roomNumber: [''],
     benchType: ['Single Bench'],
     notes: ['']

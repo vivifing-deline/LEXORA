@@ -102,8 +102,8 @@
         </button>
 
         <!-- Quick Action Button -->
-        <a routerLink="/cases" class="btn btn-primary btn-sm action-btn">
-          <app-icon name="plus" [size]="15"></app-icon>
+        <a routerLink="/cases" [queryParams]="{ openCreate: 'true' }" class="btn btn-primary btn-sm action-btn">
+          <app-icon name="plus" [size]="15" color="#FFFFFF"></app-icon>
           <span>New Case</span>
         </a>
 
